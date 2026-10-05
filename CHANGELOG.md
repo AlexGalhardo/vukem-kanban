@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0-alpha.1] - 2026-10-05
+
 ### Added
 
 - E2E desktop do fluxo completo (criar projeto, card, mover, editar, arquivar) dentro da janela Electron.
@@ -61,5 +63,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Empacotamento com electron-builder (`desktop/electron-builder.yml`): instalador NSIS e executável portable para Windows x64.
 - E2E desktop (`e2e/desktop/app.spec.ts`): dashboard carrega, `kanban.db` criado, backup, sem `kanban.exe` órfão após fechar e segunda instância.
 
-[Unreleased]: https://github.com/AlexGalhardo/trello-golang-htmx/compare/v0.0.1...HEAD
+[Unreleased]: https://github.com/AlexGalhardo/trello-golang-htmx/compare/v0.4.0-alpha.1...HEAD
+[0.4.0-alpha.1]: https://github.com/AlexGalhardo/trello-golang-htmx/compare/v0.0.1...v0.4.0-alpha.1
 [0.0.1]: https://github.com/AlexGalhardo/trello-golang-htmx/releases/tag/v0.0.1

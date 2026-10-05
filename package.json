@@ -1,7 +1,7 @@
 {
 	"name": "trello-golang-htmx",
 	"productName": "Kanban",
-	"version": "0.0.1",
+	"version": "0.4.0-alpha.1",
 	"description": "Kanban estilo Linear para gerenciar projetos de software (Go + HTMX + SQLite + Electron)",
 	"author": "Alex Galhardo",
 	"license": "MIT",
