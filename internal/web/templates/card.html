@@ -1,0 +1,119 @@
+{{define "card"}}
+{{- $c := .Card}}
+<li id="card-{{$c.ID}}" class="card group" draggable="true" data-card-id="{{$c.ID}}" data-testid="card" {{if .OOB}}hx-swap-oob="true"{{end}}>
+	<button type="button" class="card-open block w-full text-left focus:outline-none" hx-get="/cards/{{$c.ID}}" hx-target="#modal">
+		<span class="flex items-center gap-2 text-[12px] text-faint">
+			<span class="font-mono tabular-nums">{{.Prefix}}-{{$c.ID}}</span>
+		</span>
+		<span class="mt-1 flex items-start gap-1.5">
+			<span class="mt-px">{{template "priority-icon" $c.Priority}}</span>
+			<span class="sr-only">Prioridade: {{priorityName $c.Priority}}.</span>
+			<span class="line-clamp-3 text-[13px] font-medium leading-snug" data-testid="card-title">{{$c.Title}}</span>
+		</span>
+		{{- if or $c.Labels $c.DueDate $c.Description}}
+		<span class="mt-2 flex flex-wrap items-center gap-1">
+			{{- if $c.DueDate}}
+			<span class="chip {{if $c.Overdue .Today}}border-red-500/40 text-red-600 dark:text-red-400{{end}}" title="Entrega">
+				{{template "icon-calendar"}}{{fmtDate $c.DueDate}}{{if $c.Overdue .Today}}<span class="sr-only"> (vencido)</span>{{end}}
+			</span>
+			{{- end}}
+			{{- range $c.Labels}}<span class="chip"><span class="size-2 rounded-full {{dot .Color}}" aria-hidden="true"></span>{{.Name}}</span>{{end}}
+			{{- if $c.Description}}<span class="chip border-transparent px-0.5" title="Tem descrição">{{template "icon-text"}}<span class="sr-only">Tem descrição</span></span>{{end}}
+		</span>
+		{{- end}}
+	</button>
+	<button type="button" class="card-edit btn-ghost absolute right-1.5 top-1.5 opacity-0 group-hover:opacity-100 focus:opacity-100"
+		hx-get="/cards/{{$c.ID}}/title" hx-target="#card-{{$c.ID}}" hx-swap="outerHTML" aria-label="Editar título de {{$c.Title}}">{{template "icon-pencil"}}</button>
+</li>
+{{end}}
+
+{{define "card-title-form"}}
+<li id="card-{{.Card.ID}}" class="card border-accent">
+	<form class="space-y-2" hx-put="/cards/{{.Card.ID}}/title" hx-target="#card-{{.Card.ID}}" hx-swap="outerHTML">
+		<label class="sr-only" for="title-{{.Card.ID}}">Título do card</label>
+		<textarea id="title-{{.Card.ID}}" name="title" required maxlength="200" rows="2" class="input w-full resize-none" autofocus data-submit-on-enter>{{.Card.Title}}</textarea>
+		<div class="flex items-center gap-2">
+			<button class="btn-primary">Salvar</button>
+			<button type="button" class="btn-ghost" data-cancel hx-get="/cards/{{.Card.ID}}/card" hx-target="#card-{{.Card.ID}}" hx-swap="outerHTML">Cancelar</button>
+			<span class="ml-auto text-[11px] text-faint"><kbd>Enter</kbd> salva · <kbd>Esc</kbd></span>
+		</div>
+	</form>
+</li>
+{{end}}
+
+{{define "card-delete-oob"}}<li id="card-{{.Card.ID}}" hx-swap-oob="delete"></li>{{end}}
+
+{{define "card-labels"}}
+<div id="card-labels" class="flex flex-wrap gap-1.5" data-testid="card-labels">
+	{{- range .View.Labels}}
+	<button type="button" class="chip cursor-pointer {{if $.Card.HasLabel .ID}}border-accent text-fg{{else}}opacity-60 hover:opacity-100{{end}}"
+		aria-pressed="{{$.Card.HasLabel .ID}}" hx-post="/cards/{{$.Card.ID}}/labels/{{.ID}}" hx-target="#card-labels" hx-swap="outerHTML">
+		<span class="size-2 rounded-full {{dot .Color}}" aria-hidden="true"></span>{{.Name}}
+	</button>
+	{{- else}}
+	<p class="text-[12px] text-faint">Nenhuma label neste projeto. Crie em “Labels” no topo do quadro.</p>
+	{{- end}}
+</div>
+{{end}}
+
+{{define "card-dialog"}}
+{{- $c := .Card}}
+<dialog class="dialog w-full max-w-2xl p-0" aria-labelledby="card-dialog-title" data-testid="card-dialog">
+	<div class="flex items-center gap-2 border-b border-line px-5 py-3 text-[12px] text-muted">
+		<span class="grid size-4 place-items-center rounded {{chip .View.Board.Color}} text-[9px] font-bold" aria-hidden="true">{{initial .View.Board.Name}}</span>
+		<span>{{.View.Board.Name}}</span><span class="text-faint">›</span>
+		<span id="card-dialog-title" class="font-mono text-fg">{{.Prefix}}-{{$c.ID}}</span>
+		<form method="dialog" class="ml-auto"><button class="btn-ghost" aria-label="Fechar">{{template "icon-close"}}</button></form>
+	</div>
+	<form class="grid gap-0 md:grid-cols-[1fr_13rem]" hx-put="/cards/{{$c.ID}}" hx-target="#modal">
+		<div class="space-y-3 p-5">
+			<div>
+				<label class="sr-only" for="card-title">Título</label>
+				<input id="card-title" name="title" value="{{val .Form "title" $c.Title}}" required maxlength="200" placeholder="Título do card"
+					class="w-full bg-transparent text-[18px] font-semibold text-fg placeholder:text-faint focus:outline-none" {{if .Errors.title}}aria-invalid="true" aria-describedby="err-title"{{end}}>
+				{{with .Errors.title}}<p id="err-title" class="field-error">{{.}}</p>{{end}}
+			</div>
+			<div>
+				<label class="sr-only" for="card-description">Descrição</label>
+				<textarea id="card-description" name="description" rows="9" maxlength="10000" placeholder="Adicione uma descrição…"
+					class="w-full resize-y bg-transparent text-[13px] leading-relaxed text-fg placeholder:text-faint focus:outline-none">{{val .Form "description" $c.Description}}</textarea>
+				{{with .Errors.description}}<p class="field-error">{{.}}</p>{{end}}
+			</div>
+			<div class="flex items-center gap-2">
+				<button class="btn-primary">Salvar alterações</button>
+				<span class="text-[11px] text-faint"><kbd>Ctrl</kbd> <kbd>Enter</kbd></span>
+			</div>
+		</div>
+		<aside class="space-y-4 border-t border-line bg-panel/60 p-5 md:border-l md:border-t-0">
+			<div>
+				<label class="label" for="card-status">Status</label>
+				<select id="card-status" name="column_id" class="input w-full" data-move-card="{{$c.ID}}" aria-describedby="status-hint">
+					{{- range .View.Columns}}<option value="{{.ID}}" {{if eq .ID $c.ColumnID}}selected{{end}}>{{.Name}}</option>{{end}}
+				</select>
+				<p id="status-hint" class="sr-only">Mudar o status move o card para o fim da coluna escolhida.</p>
+			</div>
+			<div>
+				<label class="label" for="card-priority">Prioridade</label>
+				<select id="card-priority" name="priority" class="input w-full">
+					{{- $cur := val .Form "priority" $c.Priority}}
+					{{- range $i, $p := .Priorities}}<option value="{{$i}}" {{if eq (print $i) $cur}}selected{{end}}>{{$p}}</option>{{end}}
+				</select>
+			</div>
+			<div>
+				<label class="label" for="card-due">Entrega</label>
+				<input id="card-due" type="date" name="due_date" value="{{val .Form "due_date" $c.DueDate}}" class="input w-full">
+				{{with .Errors.due_date}}<p class="field-error">{{.}}</p>{{end}}
+			</div>
+			<div>
+				<h3 class="label">Labels</h3>
+				{{template "card-labels" .}}
+			</div>
+			<div class="space-y-1 border-t border-line pt-3 text-[11px] text-faint">
+				<p>Criado {{$c.CreatedAt.Format "02/01/2006 15:04"}}</p>
+				<p>Atualizado {{$c.UpdatedAt.Format "02/01/2006 15:04"}}</p>
+			</div>
+			<button type="button" class="btn-danger w-full" hx-delete="/cards/{{$c.ID}}" hx-swap="none" hx-confirm="Excluir {{.Prefix}}-{{$c.ID}}?">Excluir card</button>
+		</aside>
+	</form>
+</dialog>
+{{end}}

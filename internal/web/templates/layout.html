@@ -1,0 +1,83 @@
+{{define "layout"}}<!doctype html>
+<html lang="pt-BR" class="h-full">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="htmx-config" content='{"includeIndicatorCSS":false,"noSwap":[204,304,"5xx"]}'>
+	<title>{{if .View}}{{.View.Board.Name}} · {{end}}Kanban</title>
+	<link rel="icon" href="/static/favicon.svg?v={{.Version}}" type="image/svg+xml">
+	<link rel="stylesheet" href="/static/app.css?v={{.Version}}">
+	<script src="/static/theme.js?v={{.Version}}"></script>
+	<script src="/static/htmx.min.js?v={{.Version}}" defer></script>
+	<script src="/static/app.js?v={{.Version}}" defer></script>
+</head>
+<body class="h-full overflow-hidden" hx-indicator:inherited="#progress">
+	<div id="progress" class="htmx-indicator pointer-events-none fixed inset-x-0 top-0 z-50 h-0.5" aria-hidden="true"></div>
+	<a href="#main" class="sr-only focus:not-sr-only focus:fixed focus:left-2 focus:top-2 focus:z-50 focus:rounded-md focus:bg-accent focus:px-3 focus:py-2 focus:text-accent-fg">Pular para o quadro</a>
+	<div class="flex h-full">
+		{{template "sidebar" .}}
+		<main id="main" class="flex min-w-0 flex-1 flex-col bg-canvas" tabindex="-1">{{template "main" .}}</main>
+	</div>
+	<div id="modal"></div>
+	<div id="toasts" class="pointer-events-none fixed bottom-4 right-4 z-50 flex w-80 flex-col gap-2" role="status" aria-live="polite"></div>
+	{{template "shortcuts-dialog"}}
+	{{template "command-palette"}}
+</body>
+</html>{{end}}
+
+{{define "main"}}
+{{- if .NotFound}}
+<div class="m-auto max-w-sm p-8 text-center">
+	<h1 class="text-[15px] font-semibold">Projeto não encontrado</h1>
+	<p class="mt-1.5 text-muted">Ele pode ter sido excluído.</p>
+	<a href="/" class="btn-primary mt-4">Voltar ao início</a>
+</div>
+{{- else if .View}}{{template "board" .}}
+{{- else}}
+<div class="m-auto max-w-sm p-8 text-center" data-testid="empty-state">
+	<div class="mx-auto mb-4 grid size-10 place-items-center rounded-xl border border-line-strong bg-surface text-muted">{{template "icon-plus"}}</div>
+	<h1 class="text-[15px] font-semibold">Nenhum projeto ainda</h1>
+	<p class="mt-1.5 text-muted">Crie um projeto para acompanhar o desenvolvimento num quadro kanban.</p>
+	<button type="button" class="btn-primary mt-4" hx-get="/boards/new" hx-target="#modal">Criar projeto <kbd class="border-white/30 bg-white/10 text-white">N</kbd></button>
+</div>
+{{- end}}
+{{end}}
+
+{{define "modal-clear"}}<div id="modal" hx-swap-oob="innerHTML"></div>{{end}}
+
+{{define "dialog-header"}}
+<div class="flex items-center justify-between gap-2">
+	<h2 id="{{.ID}}" class="text-[14px] font-semibold">{{.Title}}</h2>
+	<form method="dialog"><button class="btn-ghost" aria-label="Fechar">{{template "icon-close"}}</button></form>
+</div>
+{{end}}
+
+{{define "shortcuts-dialog"}}
+<dialog id="shortcuts-dialog" class="dialog w-full max-w-sm" aria-labelledby="shortcuts-title">
+	{{template "dialog-header" (dict "ID" "shortcuts-title" "Title" "Atalhos de teclado")}}
+	<dl class="mt-4 grid grid-cols-[1fr_auto] gap-y-2.5 text-[13px]">
+		<dt>Command palette</dt><dd><kbd>Ctrl</kbd> <kbd>K</kbd></dd>
+		<dt>Novo card na primeira coluna</dt><dd><kbd>C</kbd></dd>
+		<dt>Novo projeto</dt><dd><kbd>N</kbd></dd>
+		<dt>Buscar cards</dt><dd><kbd>/</kbd></dd>
+		<dt>Projeto anterior / próximo</dt><dd><kbd>G</kbd> <kbd>K</kbd> / <kbd>G</kbd> <kbd>J</kbd></dd>
+		<dt>Alternar tema</dt><dd><kbd>T</kbd></dd>
+		<dt>Fechar / cancelar</dt><dd><kbd>Esc</kbd></dd>
+		<dt>Esta lista</dt><dd><kbd>?</kbd></dd>
+	</dl>
+</dialog>
+{{end}}
+
+{{define "command-palette"}}
+<dialog id="command-palette" class="dialog mt-[12vh] w-full max-w-xl p-0" aria-label="Command palette">
+	<div class="flex items-center gap-2 border-b border-line px-4">
+		<span class="text-faint">{{template "icon-search"}}</span>
+		<input id="command-input" type="text" role="combobox" aria-expanded="true" aria-controls="command-list" aria-autocomplete="list"
+			placeholder="Digite um comando ou busque um projeto…" autocomplete="off" spellcheck="false"
+			class="h-12 flex-1 bg-transparent text-[14px] text-fg placeholder:text-faint focus:outline-none">
+		<kbd>Esc</kbd>
+	</div>
+	<ul id="command-list" role="listbox" class="max-h-80 overflow-y-auto p-2" aria-label="Comandos"></ul>
+	<p class="border-t border-line px-4 py-2 text-[11px] text-faint"><kbd>↑</kbd> <kbd>↓</kbd> navegar · <kbd>Enter</kbd> executar</p>
+</dialog>
+{{end}}

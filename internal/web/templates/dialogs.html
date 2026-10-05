@@ -1,0 +1,125 @@
+{{define "color-picker"}}
+<fieldset>
+	<legend class="label">Cor</legend>
+	<div class="flex flex-wrap gap-2">
+		{{- range .Colors}}
+		<label class="cursor-pointer">
+			<input type="radio" name="color" value="{{.}}" class="peer sr-only" {{if eq . $.Selected}}checked{{end}}>
+			<span class="block size-5 rounded-full ring-offset-2 ring-offset-[var(--elevated)] peer-checked:ring-2 peer-checked:ring-accent peer-focus-visible:ring-2 peer-focus-visible:ring-accent {{dot .}}"></span>
+			<span class="sr-only">{{.}}</span>
+		</label>
+		{{- end}}
+	</div>
+</fieldset>
+{{end}}
+
+{{define "new-board-dialog"}}
+<dialog class="dialog w-full max-w-md" aria-labelledby="new-board-title" data-testid="new-board-dialog">
+	{{template "dialog-header" (dict "ID" "new-board-title" "Title" "Novo projeto")}}
+	<form class="mt-4 space-y-4" hx-post="/boards" hx-target="#modal">
+		<div>
+			<label class="label" for="board-name">Nome</label>
+			<input id="board-name" name="name" value="{{val .Form "name" ""}}" required maxlength="80" autofocus autocomplete="off" class="input w-full"
+				placeholder="Ex.: trello-golang-htmx" {{if .Errors.name}}aria-invalid="true" aria-describedby="err-name"{{end}}>
+			{{with .Errors.name}}<p id="err-name" class="field-error">{{.}}</p>{{end}}
+		</div>
+		<div>
+			<label class="label" for="board-description">Descrição <span class="text-faint">(opcional)</span></label>
+			<input id="board-description" name="description" value="{{val .Form "description" ""}}" maxlength="2000" class="input w-full">
+		</div>
+		{{template "color-picker" (dict "Colors" .Colors "Selected" (val .Form "color" "indigo"))}}
+		<p class="text-[12px] text-faint">Colunas iniciais: Backlog, A fazer, Em progresso, Revisão, Feito.</p>
+		<div class="flex justify-end gap-2">
+			<button type="submit" class="btn-primary">Criar projeto</button>
+		</div>
+	</form>
+</dialog>
+{{end}}
+
+{{define "board-settings"}}
+{{- $b := .View.Board}}
+<dialog class="dialog w-full max-w-md" aria-labelledby="settings-title" data-testid="board-settings">
+	{{template "dialog-header" (dict "ID" "settings-title" "Title" "Configurações do projeto")}}
+	<form class="mt-4 space-y-4" hx-put="/boards/{{$b.ID}}" hx-target="#modal">
+		<div>
+			<label class="label" for="settings-name">Nome</label>
+			<input id="settings-name" name="name" value="{{val .Form "name" $b.Name}}" required maxlength="80" class="input w-full">
+			{{with .Errors.name}}<p class="field-error">{{.}}</p>{{end}}
+		</div>
+		<div>
+			<label class="label" for="settings-description">Descrição</label>
+			<input id="settings-description" name="description" value="{{val .Form "description" $b.Description}}" maxlength="2000" class="input w-full">
+		</div>
+		{{template "color-picker" (dict "Colors" .Colors "Selected" (val .Form "color" $b.Color))}}
+		<div class="flex justify-end"><button type="submit" class="btn-primary">Salvar</button></div>
+	</form>
+	<div class="mt-5 border-t border-line pt-4">
+		{{- if $b.Archived}}
+		<button type="button" class="btn-secondary w-full" hx-post="/boards/{{$b.ID}}/restore">Restaurar projeto</button>
+		{{- else}}
+		<button type="button" class="btn-secondary w-full" hx-post="/boards/{{$b.ID}}/archive" hx-confirm="Arquivar {{$b.Name}}? Ele sai da lista, mas pode ser restaurado.">Arquivar projeto</button>
+		{{- end}}
+	</div>
+	<form class="mt-5 space-y-2 border-t border-line pt-4" hx-delete="/boards/{{$b.ID}}" hx-include="this" hx-target="#modal">
+		<label class="label text-red-600 dark:text-red-400" for="confirm-name">Zona de perigo — digite <strong class="text-fg">{{$b.Name}}</strong> para excluir definitivamente</label>
+		<input id="confirm-name" name="confirm_name" autocomplete="off" class="input w-full" {{if .Errors.confirm_name}}aria-invalid="true" aria-describedby="err-confirm"{{end}}>
+		{{with .Errors.confirm_name}}<p id="err-confirm" class="field-error">{{.}}</p>{{end}}
+		<button type="submit" class="btn-danger w-full">Excluir projeto e todos os cards</button>
+	</form>
+</dialog>
+{{end}}
+
+{{define "labels-dialog"}}
+{{- $b := .View.Board}}
+<dialog class="dialog w-full max-w-md" aria-labelledby="labels-title" data-testid="labels-dialog">
+	{{template "dialog-header" (dict "ID" "labels-title" "Title" (print "Labels · " $b.Name))}}
+	<ul class="mt-4 space-y-2">
+		{{- range .View.Labels}}
+		<li class="flex items-center gap-2">
+			<span class="size-2.5 shrink-0 rounded-full {{dot .Color}}" aria-hidden="true"></span>
+			<form class="flex flex-1 items-center gap-2" hx-put="/labels/{{.ID}}" hx-target="#modal">
+				<label class="sr-only" for="label-name-{{.ID}}">Nome da label</label>
+				<input id="label-name-{{.ID}}" name="name" value="{{.Name}}" required maxlength="30" class="input min-w-0 flex-1">
+				<label class="sr-only" for="label-color-{{.ID}}">Cor</label>
+				<select id="label-color-{{.ID}}" name="color" class="input">
+					{{- $cur := .Color}}{{range $.Colors}}<option value="{{.}}" {{if eq . $cur}}selected{{end}}>{{.}}</option>{{end}}
+				</select>
+				<button type="submit" class="btn-secondary" aria-label="Salvar label {{.Name}}">Salvar</button>
+			</form>
+			<button type="button" class="btn-ghost" hx-delete="/labels/{{.ID}}" hx-target="#modal" hx-confirm="Excluir a label {{.Name}}?" aria-label="Excluir label {{.Name}}">{{template "icon-close"}}</button>
+		</li>
+		{{- else}}
+		<li class="text-[12px] text-faint">Nenhuma label ainda.</li>
+		{{- end}}
+	</ul>
+	<form class="mt-4 space-y-3 border-t border-line pt-4" hx-post="/boards/{{$b.ID}}/labels" hx-target="#modal">
+		<div>
+			<label class="label" for="new-label">Nova label</label>
+			<input id="new-label" name="name" value="{{val .Form "name" ""}}" required maxlength="30" autocomplete="off" placeholder="Ex.: bug" class="input w-full">
+			{{with .Errors.name}}<p class="field-error">{{.}}</p>{{end}}
+		</div>
+		{{template "color-picker" (dict "Colors" .Colors "Selected" (val .Form "color" "sky"))}}
+		<div class="flex justify-end"><button type="submit" class="btn-primary">Criar label</button></div>
+	</form>
+</dialog>
+{{end}}
+
+{{define "import-dialog"}}
+<dialog class="dialog w-full max-w-md" aria-labelledby="import-title" data-testid="import-dialog">
+	{{template "dialog-header" (dict "ID" "import-title" "Title" "Importar dados")}}
+	<form class="mt-4 space-y-4" hx-post="/import" hx-encoding="multipart/form-data" hx-target="#modal">
+		<div>
+			<label class="label" for="import-file">Arquivo JSON exportado</label>
+			<input id="import-file" type="file" name="file" accept="application/json,.json" required
+				class="block w-full text-[12px] text-muted file:mr-3 file:rounded-md file:border file:border-line-strong file:bg-surface file:px-2.5 file:py-1 file:text-fg">
+			{{with .Errors.file}}<p class="field-error">{{.}}</p>{{end}}
+		</div>
+		<fieldset class="space-y-1.5">
+			<legend class="label">Modo</legend>
+			<label class="flex items-center gap-2"><input type="radio" name="mode" value="merge" checked class="accent-[var(--accent)]"> Adicionar aos projetos existentes</label>
+			<label class="flex items-center gap-2"><input type="radio" name="mode" value="replace" class="accent-[var(--accent)]"> Substituir tudo <span class="text-red-600 dark:text-red-400">(apaga os projetos atuais)</span></label>
+		</fieldset>
+		<div class="flex justify-end"><button type="submit" class="btn-primary">Importar</button></div>
+	</form>
+</dialog>
+{{end}}

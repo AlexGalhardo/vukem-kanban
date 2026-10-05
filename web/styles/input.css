@@ -1,0 +1,181 @@
+@import "tailwindcss";
+
+@source "../../internal/web/templates";
+@source "../../internal/web/render.go";
+@source "../../internal/web/static/app.js";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Linear-inspired design tokens. Light values here, dark overrides below;
+   Tailwind utilities (bg-canvas, text-muted, border-line...) read them. */
+:root {
+	--canvas: #ffffff;
+	--panel: #f7f7f8;
+	--surface: #ffffff;
+	--surface-hover: #f4f4f5;
+	--elevated: #ffffff;
+	--line: rgb(0 0 0 / 0.08);
+	--line-strong: rgb(0 0 0 / 0.14);
+	--fg: #1b1c1f;
+	--muted: #6b6f76;
+	--faint: #9a9ea6;
+	--accent: #5e6ad2;
+	--accent-hover: #4d58c4;
+	--accent-fg: #ffffff;
+	--focus: rgb(94 106 210 / 0.45);
+}
+
+.dark {
+	--canvas: #08090a;
+	--panel: #0f1011;
+	--surface: #151618;
+	--surface-hover: #1c1d20;
+	--elevated: #1b1c1f;
+	--line: rgb(255 255 255 / 0.07);
+	--line-strong: rgb(255 255 255 / 0.12);
+	--fg: #f7f8f8;
+	--muted: #8a8f98;
+	--faint: #62666d;
+	--accent: #5e6ad2;
+	--accent-hover: #7170ff;
+	--accent-fg: #ffffff;
+	--focus: rgb(113 112 255 / 0.5);
+}
+
+@theme inline {
+	--color-canvas: var(--canvas);
+	--color-panel: var(--panel);
+	--color-surface: var(--surface);
+	--color-surface-hover: var(--surface-hover);
+	--color-elevated: var(--elevated);
+	--color-line: var(--line);
+	--color-line-strong: var(--line-strong);
+	--color-fg: var(--fg);
+	--color-muted: var(--muted);
+	--color-faint: var(--faint);
+	--color-accent: var(--accent);
+	--color-accent-hover: var(--accent-hover);
+	--color-accent-fg: var(--accent-fg);
+	--font-sans: "Inter Variable", "Inter", "Segoe UI Variable Text", "Segoe UI", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+	--font-mono: "JetBrains Mono", "Cascadia Code", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+@layer base {
+	html {
+		font-size: 13px;
+		-webkit-font-smoothing: antialiased;
+		color-scheme: light;
+	}
+	html.dark {
+		color-scheme: dark;
+	}
+	body {
+		@apply bg-canvas font-sans text-fg;
+		letter-spacing: -0.005em;
+	}
+	:focus-visible {
+		outline: 2px solid var(--focus);
+		outline-offset: 1px;
+	}
+	kbd {
+		@apply inline-flex h-[18px] min-w-[18px] items-center justify-center rounded border border-line-strong bg-surface px-1 font-sans text-[11px] text-muted;
+	}
+	::selection {
+		background: var(--focus);
+	}
+	* {
+		scrollbar-width: thin;
+		scrollbar-color: var(--line-strong) transparent;
+	}
+}
+
+@layer components {
+	.btn-primary {
+		@apply inline-flex h-7 cursor-pointer items-center justify-center gap-1.5 rounded-md px-2.5 text-[12px] font-medium whitespace-nowrap transition-colors duration-100 disabled:cursor-not-allowed disabled:opacity-40 bg-accent text-accent-fg shadow-sm hover:bg-accent-hover;
+	}
+	.btn-secondary {
+		@apply inline-flex h-7 cursor-pointer items-center justify-center gap-1.5 rounded-md px-2.5 text-[12px] font-medium whitespace-nowrap transition-colors duration-100 disabled:cursor-not-allowed disabled:opacity-40 border border-line-strong bg-surface text-fg hover:bg-surface-hover;
+	}
+	.btn-ghost {
+		@apply inline-flex h-6 cursor-pointer items-center justify-center gap-1.5 rounded-md px-1.5 text-[12px] font-medium whitespace-nowrap transition-colors duration-100 disabled:cursor-not-allowed disabled:opacity-40 text-muted hover:bg-surface-hover hover:text-fg;
+	}
+	.btn-danger {
+		@apply inline-flex h-7 cursor-pointer items-center justify-center gap-1.5 rounded-md px-2.5 text-[12px] font-medium whitespace-nowrap transition-colors duration-100 disabled:cursor-not-allowed disabled:opacity-40 border border-red-500/30 bg-red-500/10 text-red-600 hover:bg-red-500/20 dark:text-red-400;
+	}
+	.input {
+		@apply h-7 rounded-md border border-line-strong bg-surface px-2 text-[13px] text-fg placeholder:text-faint focus:border-accent focus:outline-none focus:ring-2 focus:ring-[var(--focus)];
+	}
+	textarea.input {
+		@apply h-auto py-1.5 leading-relaxed;
+	}
+	.label {
+		@apply mb-1 block text-[12px] font-medium text-muted;
+	}
+	.field-error {
+		@apply mt-1 text-[12px] text-red-600 dark:text-red-400;
+	}
+	.chip {
+		@apply inline-flex h-5 items-center gap-1 rounded-full border border-line-strong px-1.5 text-[11px] font-medium text-muted;
+	}
+	.nav-link {
+		@apply flex h-7 items-center gap-2 rounded-md px-2 text-[13px] text-muted transition-colors duration-100 hover:bg-surface-hover hover:text-fg;
+	}
+	.nav-link[aria-current="page"] {
+		@apply bg-surface-hover font-medium text-fg;
+	}
+	.card {
+		@apply relative rounded-lg border border-line bg-surface p-2.5 shadow-[0_1px_1px_rgb(0_0_0/0.04)] transition-[border-color,background-color,opacity] duration-100 hover:border-line-strong;
+	}
+	.card.dragging {
+		@apply opacity-40;
+	}
+	.dialog {
+		@apply m-auto max-h-[85vh] overflow-y-auto rounded-xl border border-line-strong bg-elevated p-5 text-fg shadow-2xl;
+	}
+	.dialog::backdrop {
+		background: rgb(0 0 0 / 0.5);
+		backdrop-filter: blur(2px);
+	}
+	.menu-panel {
+		@apply absolute right-0 z-20 mt-1 w-64 space-y-3 rounded-lg border border-line-strong bg-elevated p-3 shadow-xl;
+	}
+	.toast {
+		@apply pointer-events-auto flex items-start gap-2 rounded-lg border border-line-strong bg-elevated px-3 py-2.5 text-[13px] shadow-xl;
+	}
+}
+
+/* htmx: includeIndicatorStyles is off so the CSP can forbid inline styles. */
+.htmx-indicator {
+	opacity: 0;
+	transition: opacity 150ms;
+}
+.htmx-request .htmx-indicator,
+.htmx-request.htmx-indicator {
+	opacity: 1;
+}
+#progress {
+	background: linear-gradient(90deg, transparent, var(--accent), transparent);
+	background-size: 50% 100%;
+	animation: progress 1s linear infinite;
+}
+@keyframes progress {
+	from { background-position: -50% 0; }
+	to { background-position: 150% 0; }
+}
+
+[data-dropzone].drop-target {
+	@apply rounded-md bg-accent/5;
+}
+.drop-marker {
+	@apply h-0.5 rounded-full bg-accent;
+}
+details > summary::-webkit-details-marker {
+	display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*, *::before, *::after {
+		animation-duration: 0.01ms !important;
+		transition-duration: 0.01ms !important;
+	}
+}

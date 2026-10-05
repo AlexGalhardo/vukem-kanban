@@ -1,0 +1,124 @@
+{{define "board"}}
+{{- $b := .View.Board}}
+<header class="flex h-12 shrink-0 items-center gap-2 border-b border-line px-3 md:px-4">
+	<button type="button" class="btn-ghost md:hidden" data-action="sidebar" aria-label="Mostrar projetos" aria-controls="sidebar">{{template "icon-menu"}}</button>
+	<span class="grid size-5 shrink-0 place-items-center rounded {{chip $b.Color}} text-[10px] font-bold" aria-hidden="true">{{initial $b.Name}}</span>
+	<h1 class="truncate text-[13px] font-medium" data-testid="board-title" title="{{$b.Description}}">{{$b.Name}}</h1>
+	{{- if $b.Archived}}
+	<span class="chip border-amber-500/40 text-amber-600 dark:text-amber-400">Arquivado</span>
+	<button type="button" class="btn-secondary" hx-post="/boards/{{$b.ID}}/restore">Restaurar</button>
+	{{- end}}
+	<div class="ml-auto flex items-center gap-1">
+		<button type="button" class="btn-ghost" hx-get="/boards/{{$b.ID}}/labels" hx-target="#modal" data-action="labels" title="Labels">{{template "icon-tag"}}<span class="hidden lg:inline">Labels</span></button>
+		<button type="button" class="btn-ghost" hx-get="/boards/{{$b.ID}}/settings" hx-target="#modal" data-action="settings" title="Configurações">{{template "icon-gear"}}<span class="hidden lg:inline">Configurações</span></button>
+	</div>
+</header>
+<form id="filters" class="flex shrink-0 flex-wrap items-center gap-2 border-b border-line px-3 py-2 md:px-4" role="search"
+	hx-target:inherited="#columns" hx-select:inherited="#columns" hx-swap:inherited="outerHTML" hx-push-url:inherited="true">
+	<div class="relative">
+		<span class="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-faint">{{template "icon-search"}}</span>
+		<label class="sr-only" for="search">Buscar cards</label>
+		<input id="search" type="search" name="q" value="{{.View.Filter.Query}}" placeholder="Filtrar cards…" autocomplete="off"
+			class="input w-52 pl-7" hx-get="/boards/{{$b.ID}}" hx-include="#filters" hx-trigger="input changed delay:250ms, search">
+	</div>
+	<label class="sr-only" for="filter-label">Filtrar por label</label>
+	<select id="filter-label" name="label" class="input" hx-get="/boards/{{$b.ID}}" hx-include="#filters" hx-trigger="change">
+		<option value="">Label: todas</option>
+		{{- range .View.Labels}}
+		<option value="{{.ID}}" {{if eq $.View.Filter.LabelID .ID}}selected{{end}}>{{.Name}}</option>
+		{{- end}}
+	</select>
+	<label class="sr-only" for="filter-priority">Filtrar por prioridade</label>
+	<select id="filter-priority" name="priority" class="input" hx-get="/boards/{{$b.ID}}" hx-include="#filters" hx-trigger="change">
+		<option value="">Prioridade: todas</option>
+		{{- range $i, $p := .Priorities}}
+		<option value="{{$i}}" {{if and $.View.Filter.HasPriority (eq $.View.Filter.Priority $i)}}selected{{end}}>{{$p}}</option>
+		{{- end}}
+	</select>
+	<label class="flex h-7 cursor-pointer items-center gap-1.5 rounded-md border border-line-strong px-2 text-[12px] text-muted has-checked:border-accent has-checked:text-fg">
+		<input type="checkbox" name="overdue" value="1" class="accent-[var(--accent)]" {{if .View.Filter.Overdue}}checked{{end}}
+			hx-get="/boards/{{$b.ID}}" hx-include="#filters" hx-trigger="change"> Vencidos
+	</label>
+</form>
+{{template "columns" .}}
+{{end}}
+
+{{define "columns"}}
+<div id="columns" class="flex min-h-0 flex-1 flex-col" data-board-id="{{.View.Board.ID}}" {{if .OOB}}hx-swap-oob="true"{{end}}>
+	{{- if .View.Filter.Active}}
+	<p class="flex items-center gap-2 px-4 pt-2.5 text-[12px] text-muted" data-testid="filter-summary">
+		Mostrando <span class="tabular-nums text-fg">{{.View.Shown}}</span> de <span class="tabular-nums">{{.View.Total}}</span> cards
+		<a href="/boards/{{.View.Board.ID}}" hx-get="/boards/{{.View.Board.ID}}" hx-target="#main" hx-push-url="true" class="text-accent hover:underline">Limpar filtros</a>
+	</p>
+	{{- end}}
+	<div class="flex min-h-0 flex-1 items-start gap-3 overflow-x-auto p-3 md:p-4">
+		{{- $n := len .View.Columns}}
+		{{- range $i, $c := .View.Columns}}
+		{{template "column" (dict "Column" $c "Index" $i "Count" $n "Columns" $.View.Columns "Today" $.Today "Prefix" $.Prefix)}}
+		{{- end}}
+		<form class="w-72 shrink-0 pt-1" hx-post="/boards/{{.View.Board.ID}}/columns" hx-target="#columns" hx-swap="outerHTML">
+			<label class="sr-only" for="new-column">Nome da nova coluna</label>
+			<input id="new-column" name="name" required maxlength="40" placeholder="+ Nova coluna" class="input w-full border-dashed bg-transparent" autocomplete="off">
+		</form>
+	</div>
+</div>
+{{end}}
+
+{{define "column"}}
+{{- $c := .Column}}
+<section id="column-{{$c.ID}}" class="flex max-h-full w-72 shrink-0 flex-col rounded-lg" aria-labelledby="colname-{{$c.ID}}" data-testid="column">
+	<div class="group/col flex h-8 items-center gap-2 px-1.5">
+		{{template "status-icon" .}}
+		<h2 id="colname-{{$c.ID}}" class="truncate text-[13px] font-medium">{{$c.Name}}</h2>
+		{{template "column-count" (dict "Column" $c "OOB" false)}}
+		<details class="col-menu relative ml-auto">
+			<summary class="btn-ghost list-none" aria-label="Opções da coluna {{$c.Name}}">{{template "icon-dots"}}</summary>
+			<div class="menu-panel">
+				<form class="space-y-2" hx-put="/columns/{{$c.ID}}" hx-target="#columns" hx-swap="outerHTML">
+					<label class="label" for="colname-input-{{$c.ID}}">Nome</label>
+					<input id="colname-input-{{$c.ID}}" name="name" value="{{$c.Name}}" required maxlength="40" class="input w-full">
+					<label class="label" for="wip-{{$c.ID}}">Limite WIP <span class="text-faint">(0 = sem limite)</span></label>
+					<input id="wip-{{$c.ID}}" name="wip_limit" type="number" min="0" max="999" value="{{$c.WIPLimit}}" class="input w-full">
+					<button class="btn-primary w-full">Salvar coluna</button>
+				</form>
+				<div class="flex gap-2">
+					<button type="button" class="btn-secondary flex-1" {{if eq .Index 0}}disabled{{end}}
+						hx-post="/columns/{{$c.ID}}/move" hx-vals='{"position": "{{add .Index -1}}"}' hx-target="#columns" hx-swap="outerHTML">← Mover</button>
+					<button type="button" class="btn-secondary flex-1" {{if last .Index .Count}}disabled{{end}}
+						hx-post="/columns/{{$c.ID}}/move" hx-vals='{"position": "{{add .Index 1}}"}' hx-target="#columns" hx-swap="outerHTML">Mover →</button>
+				</div>
+				<form class="space-y-2 border-t border-line pt-3" hx-delete="/columns/{{$c.ID}}" hx-include="this" hx-target="#columns" hx-swap="outerHTML"
+					hx-confirm="Excluir a coluna {{$c.Name}}?">
+					{{- if $c.Cards}}
+					<label class="label" for="move-to-{{$c.ID}}">Mover os cards para</label>
+					<select id="move-to-{{$c.ID}}" name="move_to" class="input w-full">
+						{{- range .Columns}}{{if ne .ID $c.ID}}<option value="{{.ID}}">{{.Name}}</option>{{end}}{{end}}
+					</select>
+					{{- end}}
+					<button class="btn-danger w-full">Excluir coluna</button>
+				</form>
+			</div>
+		</details>
+		<button type="button" class="btn-ghost" data-focus-new-card="{{$c.ID}}" aria-label="Novo card em {{$c.Name}}" title="Novo card">{{template "icon-plus"}}</button>
+	</div>
+	<ol id="cards-{{$c.ID}}" class="min-h-12 flex-1 space-y-1.5 overflow-y-auto rounded-lg p-1" data-dropzone data-column-id="{{$c.ID}}" aria-label="Cards de {{$c.Name}}">
+		{{- range $c.Cards}}{{template "card" (dict "Card" . "Today" $.Today "OOB" false "Prefix" $.Prefix)}}{{end}}
+	</ol>
+	<form class="p-1" hx-post="/columns/{{$c.ID}}/cards" hx-target="#cards-{{$c.ID}}" hx-swap="beforeend" data-reset-on-success>
+		<label class="sr-only" for="new-card-{{$c.ID}}">Novo card em {{$c.Name}}</label>
+		<input id="new-card-{{$c.ID}}" name="title" required maxlength="200" placeholder="+ Novo card" autocomplete="off"
+			class="input w-full border-transparent bg-transparent hover:bg-surface-hover focus:bg-surface" data-new-card>
+	</form>
+</section>
+{{end}}
+
+{{define "column-count"}}
+{{- $c := .Column}}
+<span id="count-{{$c.ID}}" {{if .OOB}}hx-swap-oob="true"{{end}} data-testid="column-count"
+	class="rounded px-1 text-[12px] tabular-nums {{if $c.OverLimit}}bg-red-500/15 font-medium text-red-600 dark:text-red-400{{else}}text-faint{{end}}"
+	{{if $c.OverLimit}}title="Limite WIP excedido"{{end}}>
+	{{- len $c.Cards}}{{if $c.WIPLimit}} / {{$c.WIPLimit}}{{end -}}
+</span>
+{{end}}
+
+{{define "column-header-oob"}}{{if .Column}}{{template "column-count" (dict "Column" .Column "OOB" true)}}{{end}}{{end}}

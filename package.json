@@ -1,0 +1,38 @@
+{
+	"name": "trello-golang-htmx",
+	"productName": "Kanban",
+	"version": "0.0.1",
+	"description": "Kanban estilo Linear para gerenciar projetos de software (Go + HTMX + SQLite + Electron)",
+	"author": "Alex Galhardo",
+	"license": "MIT",
+	"private": true,
+	"main": "desktop/dist/main.js",
+	"scripts": {
+		"vendor": "bun scripts/vendor-htmx.ts",
+		"css": "tailwindcss -i web/styles/input.css -o internal/web/static/app.css --minify",
+		"css:watch": "tailwindcss -i web/styles/input.css -o internal/web/static/app.css --watch",
+		"build": "bun run vendor && bun run css && bun scripts/build-go.ts",
+		"dev": "bun run vendor && bun run css && bun scripts/dev.ts",
+		"lint": "golangci-lint run ./... && golangci-lint fmt --diff && tsc --noEmit -p tsconfig.json",
+		"fmt": "golangci-lint fmt",
+		"test": "go test -race ./...",
+		"cover": "go test -coverprofile=coverage.out ./... && go tool cover -func=coverage.out",
+		"smoke": "bun run build && bun scripts/smoke.ts",
+		"e2e": "bun run build && playwright test --project=web",
+		"e2e:desktop": "bun run build && bun run desktop:build && playwright test --project=desktop",
+		"desktop:build": "bun build desktop/main.ts --target=node --format=cjs --external electron --outfile desktop/dist/main.js && bun build desktop/preload.ts --target=node --format=cjs --external electron --outfile desktop/dist/preload.js",
+		"desktop": "bun run build && bun run desktop:build && electron .",
+		"dist": "bun run build && bun run desktop:build && electron-builder --config desktop/electron-builder.yml",
+		"release": "bun scripts/release.ts"
+	},
+	"devDependencies": {
+		"@playwright/test": "1.63.0",
+		"@tailwindcss/cli": "4.3.3",
+		"@types/bun": "1.4.2",
+		"electron": "44.5.1",
+		"electron-builder": "26.15.3",
+		"htmx.org": "4.0.0",
+		"tailwindcss": "4.3.3",
+		"typescript": "7.0.2"
+	}
+}

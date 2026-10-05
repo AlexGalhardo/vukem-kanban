@@ -1,0 +1,65 @@
+{{define "sidebar"}}
+<nav id="sidebar" aria-label="Projetos" {{if .OOB}}hx-swap-oob="true"{{end}}
+	class="sidebar fixed inset-y-0 left-0 z-40 hidden w-60 shrink-0 flex-col border-r border-line bg-panel md:static md:flex">
+	<div class="flex h-12 items-center justify-between gap-2 px-3">
+		<a href="/" class="flex min-w-0 items-center gap-2 rounded-md px-1 py-1 text-[13px] font-semibold hover:bg-surface-hover">
+			<img src="/static/favicon.svg?v={{.Version}}" alt="" class="size-5 rounded">
+			<span class="truncate">Kanban</span>
+		</a>
+		<button type="button" class="btn-ghost" hx-get="/boards/new" hx-target="#modal" data-action="new-board"
+			aria-label="Novo projeto" title="Novo projeto (N)">{{template "icon-plus"}}</button>
+	</div>
+	<div class="px-3 pb-2">
+		<button type="button" data-action="palette"
+			class="flex h-7 w-full items-center gap-2 rounded-md border border-line bg-surface px-2 text-[12px] text-faint hover:border-line-strong hover:text-muted">
+			{{template "icon-search"}}<span class="flex-1 truncate text-left">Buscar…</span><kbd>Ctrl K</kbd>
+		</button>
+	</div>
+	<div class="flex-1 overflow-y-auto px-2 pb-4">
+		<h2 class="px-2 pb-1 pt-3 text-[11px] font-medium text-faint">Projetos</h2>
+		<ul class="space-y-px" data-testid="board-list">
+			{{- range .Boards}}
+			<li>
+				<a href="/boards/{{.ID}}" hx-get="/boards/{{.ID}}" hx-target="#main" hx-push-url="true" data-board-link="{{.Name}}"
+					class="nav-link" {{if and $.View (eq $.View.Board.ID .ID)}}aria-current="page"{{end}}>
+					<span class="grid size-4 shrink-0 place-items-center rounded {{chip .Color}} text-[9px] font-bold" aria-hidden="true">{{initial .Name}}</span>
+					<span class="truncate">{{.Name}}</span>
+				</a>
+			</li>
+			{{- else}}
+			<li class="px-2 py-1 text-[12px] text-faint">Nenhum projeto</li>
+			{{- end}}
+		</ul>
+		{{- if .Archived}}
+		<details class="group mt-3" {{if and .View .View.Board.Archived}}open{{end}}>
+			<summary class="flex cursor-pointer list-none items-center gap-1 px-2 pb-1 pt-2 text-[11px] font-medium text-faint hover:text-muted">
+				<span class="transition-transform group-open:rotate-90" aria-hidden="true">›</span> Arquivados <span class="tabular-nums">{{len .Archived}}</span>
+			</summary>
+			<ul class="space-y-px" data-testid="archived-list">
+				{{- range .Archived}}
+				<li>
+					<a href="/boards/{{.ID}}" hx-get="/boards/{{.ID}}" hx-target="#main" hx-push-url="true"
+						class="nav-link opacity-60" {{if and $.View (eq $.View.Board.ID .ID)}}aria-current="page"{{end}}>
+						<span class="grid size-4 shrink-0 place-items-center rounded {{chip .Color}} text-[9px] font-bold" aria-hidden="true">{{initial .Name}}</span>
+						<span class="truncate">{{.Name}}</span>
+					</a>
+				</li>
+				{{- end}}
+			</ul>
+		</details>
+		{{- end}}
+	</div>
+	<div class="space-y-px border-t border-line p-2">
+		<a href="/export" class="nav-link" download data-action="export">Exportar dados</a>
+		<button type="button" class="nav-link w-full" hx-get="/import" hx-target="#modal" data-action="import">Importar dados…</button>
+		<button type="button" class="nav-link w-full" hx-post="/backup" hx-swap="none" data-action="backup">Fazer backup</button>
+		<div class="flex items-center justify-between px-2 pt-1.5 text-[11px] text-faint">
+			<span class="font-mono">v{{.Version}}</span>
+			<span class="flex gap-0.5">
+				<button type="button" class="btn-ghost" data-action="theme" aria-label="Alternar tema claro/escuro" title="Alternar tema (T)">{{template "icon-theme"}}</button>
+				<button type="button" class="btn-ghost" data-action="shortcuts" aria-label="Atalhos de teclado" title="Atalhos (?)">{{template "icon-keyboard"}}</button>
+			</span>
+		</div>
+	</div>
+</nav>
+{{end}}
