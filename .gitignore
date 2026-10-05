@@ -1,0 +1,25 @@
+# build
+bin/
+dist/
+desktop/out/
+
+# deps
+node_modules/
+
+# generated
+internal/web/static/app.css
+graphify-out/
+
+# data
+*.db
+*.db-shm
+*.db-wal
+
+# tests
+test-results/
+playwright-report/
+coverage.out
+
+# local
+.claude/settings.local.json
+.env

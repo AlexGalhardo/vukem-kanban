@@ -1,0 +1,41 @@
+# Contexto
+
+Sou desenvolver full stack e recentemente assinei o claude code MAX 20x para aprendizado e estou desenvolvimento diversos projetos um atrás do outro.
+
+Me surgiu a ideia de criar uma aplicação WEB/DESKTOP simulando o TRELLO, de forma bastante simplificada, para eu administrar o desenvolvimento desses vários projetos que estou fazendo.
+
+# Tech stack
+
+Eu quero que você utilize nesse projeto:
+
+- Golang como linguagem principal de backend
+- SQLITE como único banco de dados nesse momento;
+- HTMX para o frontend;
+- Tailwindcss v4 para estilização
+- Electronjs para fazer o port dessa aplicação para o formato desktop
+
+Considerações:
+- No golang, utilize o máximo póssível das bibliotecas padrões nativas da linguagem, para fins didáticos;
+- O projeto todo deve ter testes também (unitários, integração, smoke testes e e2e principalmente) -> usar ferramentas como playwright e agent-browser;
+
+## Não implementar
+- Autenticação 
+- Páginas adicionais desnecessárias
+
+## Implementar
+- A landing poage deve cair direto no dashboard estilo trello/linear para eu gerenciar meus projetos de software
+
+## Melhores práticas
+- Use semver, keepachangelog e conventional commits desde o começo do projeto, .editorconfig com tab de identicação e 4 de espaço
+- use releases no github com o changelog e os builds prontos para baixar -> começe em 0.0.1 -> os releases devem ser feitos localmente -> não ativar github actions (problema com billing)
+- Use a melhor biblioteca do ecosistema do golang para formtar e linter do código golang
+
+## Tarefas
+
+- Adicione a skill aqui localmente: https://github.com/Graphify-Labs/graphify
+- Adicione a skill aqui localmente: https://github.com/multica-ai/andrej-karpathy-skills/blob/main/skills/karpathy-guidelines/SKILL.md
+- Adicione a skill aqui localmente: https://github.com/dietrichgebert/ponytail
+- Adicione a skill https://github.com/addyosmani/agent-skills 
+    - E use a skill de planejamento para criar o arquivo principal desse projeto: o PLAN.md que vai ficar todo o planejamento de implementação, separado por 3 fases: ESTRUTURA, ALPHA, BETA, E 1.0.0 rc
+    - O PLAN.md deve ser separado por grupo de microtarefas com [x] checklists e asserts de qualidade de entrega;
+
