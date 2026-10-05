@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "boards": [
+    {
+      "name": "Legado",
+      "description": "criado na 0.4.0-alpha.1",
+      "color": "teal",
+      "archived": false,
+      "labels": [
+        {
+          "Name": "bug",
+          "Color": "red"
+        }
+      ],
+      "columns": [
+        {
+          "name": "Backlog",
+          "wip_limit": 0,
+          "cards": [
+            {
+              "title": "Card antigo",
+              "description": "desc",
+              "priority": 2,
+              "due_date": "2026-01-15",
+              "labels": [
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "name": "A fazer",
+          "wip_limit": 0,
+          "cards": []
+        },
+        {
+          "name": "Em progresso",
+          "wip_limit": 3,
+          "cards": [
+            {
+              "title": "Outro card",
+              "description": "",
+              "priority": 0,
+              "due_date": "",
+              "labels": []
+            }
+          ]
+        },
+        {
+          "name": "Revisão",
+          "wip_limit": 0,
+          "cards": []
+        },
+        {
+          "name": "Feito",
+          "wip_limit": 0,
+          "cards": []
+        }
+      ]
+    }
+  ]
+}

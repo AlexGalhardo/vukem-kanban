@@ -408,6 +408,13 @@ func TestImportGuards(t *testing.T) {
 		return rec
 	}
 	expect(t, upload(append(append([]byte{}, exported...), []byte(" garbage")...), "merge"), 422, "conteúdo extra")
+	legacy, err := os.ReadFile(filepath.Join("..", "store", "testdata", "v0.4.0-alpha.1.export.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w := upload(legacy, "merge"); w.Code != 204 {
+		t.Fatalf("legacy export import = %d %s", w.Code, w.Body.String())
+	}
 	w := upload(exported, "replace")
 	if w.Code != 204 {
 		t.Fatalf("replace import = %d %s", w.Code, w.Body.String())

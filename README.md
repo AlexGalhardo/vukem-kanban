@@ -6,6 +6,12 @@ Kanban single-user no estilo Linear para gerenciar o desenvolvimento de projetos
 - **Frontend:** htmx 4.0.0 (vendorizado), Tailwind CSS v4, ~400 linhas de JS para drag-and-drop, atalhos e command palette.
 - **Desktop:** Electron sobe o binário Go como sidecar em porta aleatória.
 
+![Quadro no tema escuro](docs/screenshots/board-dark.png)
+
+| Diálogo do card | Command palette (tema claro) |
+| --- | --- |
+| ![Diálogo do card](docs/screenshots/card-dialog-dark.png) | ![Command palette](docs/screenshots/palette-light.png) |
+
 ## Funcionalidades
 
 - Projetos (boards) com colunas padrão: Backlog, A fazer, Em progresso, Revisão, Feito.
@@ -54,6 +60,7 @@ bun run e2e:desktop  # Playwright + Electron
 ## Documentação
 
 - [PLAN.md](PLAN.md) — plano por fases com checklists.
+- [docs/adr/](docs/adr/README.md) — decisões de arquitetura (ADRs).
 - [docs/architecture.md](docs/architecture.md), [docs/tooling.md](docs/tooling.md), [docs/workflow.md](docs/workflow.md), [docs/testing.md](docs/testing.md).
 - [CHANGELOG.md](CHANGELOG.md) — Keep a Changelog + SemVer; releases locais via `bun run release <versão>`.
 

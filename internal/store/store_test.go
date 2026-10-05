@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -605,5 +606,50 @@ func TestNotFoundPaths(t *testing.T) {
 	}
 	if _, err := s.CreateLabel(ctx, 1, LabelInput{Name: "x", Color: "nope"}); !errors.As(err, &verr) {
 		t.Fatalf("label validation = %v", err)
+	}
+}
+
+// TestOpensDatabaseFromV040Alpha1 guards data compatibility: a database
+// written by the released v0.4.0-alpha.1 binary must open, migrate and keep
+// every record. Exports from that version (labels used "Name"/"Color" keys)
+// must still import.
+func TestOpensDatabaseFromV040Alpha1(t *testing.T) {
+	ctx := context.Background()
+	src, err := os.ReadFile(filepath.Join("testdata", "v0.4.0-alpha.1.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(tempDir(t), "legacy.db")
+	if err := os.WriteFile(path, src, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s, err := Open(ctx, path)
+	if err != nil {
+		t.Fatalf("open legacy db: %v", err)
+	}
+	defer func() { _ = s.Close() }()
+
+	raw, err := os.ReadFile(filepath.Join("testdata", "v0.4.0-alpha.1.export.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var want Snapshot
+	if err := json.Unmarshal(raw, &want); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.Export(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("legacy data changed:\n got %+v\nwant %+v", got, want)
+	}
+	if want.Boards[0].Labels[0].Name != "bug" {
+		t.Fatalf("legacy label keys not decoded: %+v", want.Boards[0].Labels)
+	}
+
+	fresh := newStore(t)
+	if err := fresh.Import(ctx, want, true); err != nil {
+		t.Fatalf("import legacy export: %v", err)
 	}
 }

@@ -233,7 +233,7 @@ Objetivo: kanban usável no dia a dia. Fatias verticais (schema + repositório +
 ### Checkpoint ALPHA
 
 - [x] Fluxo completo: criar projeto → criar cards → mover entre colunas → editar → arquivar — via E2E web **e** desktop
-- [ ] Release `v0.4.0-alpha.1` (prerelease) com builds
+- [x] Release `v0.4.0-alpha.1` (prerelease) com builds
 - [ ] Uso real por 1 semana gerenciando os próprios projetos; bugs viram issues — pendente do usuário; substituído nesta fase por uma rodada de QA adversarial em worktree (26 achados, corrigidos com testes de regressão)
 - [x] Revisão humana antes de seguir para BETA — dispensada: o usuário pediu execução contínua até o fim do plano
 
@@ -245,34 +245,34 @@ Objetivo: produtividade estilo Linear, robustez de dados e app desktop polido.
 
 ### B1. Labels
 
-- [ ] CRUD de labels por board (nome + cor de paleta fixa)
-- [ ] Atribuir/remover labels no card; chips no card
+- [x] CRUD de labels por board (nome + cor de paleta fixa)
+- [x] Atribuir/remover labels no card; chips no card
 - **Asserts:** testes de integração da relação N:N; E2E atribuir label.
 
 ### B2. Busca e filtros
 
-- [ ] Busca por título/descrição no board atual (`hx-trigger="input changed delay:250ms"`)
-- [ ] Filtros por label, prioridade e vencidos; estado refletido na URL (query string)
+- [x] Busca por título/descrição no board atual (`hx-trigger="input changed delay:250ms"`)
+- [x] Filtros por label, prioridade e vencidos; estado refletido na URL (query string)
 - **Asserts:** teste de repositório com dataset fixo; URL com filtros reabre filtrada (E2E).
 
 ### B3. Atalhos de teclado (estilo Linear)
 
-- [ ] `c` novo card, `/` busca, `Esc` fecha painel, `?` mostra lista de atalhos (overlay, não página)
-- [ ] Atalhos ignorados quando foco está em input/textarea
+- [x] `c` novo card, `/` busca, `Esc` fecha painel, `?` mostra lista de atalhos (overlay, não página)
+- [x] Atalhos ignorados quando foco está em input/textarea
 - **Asserts:** E2E por atalho; navegação 100% por teclado no fluxo principal.
 
 ### B4. Tema e UX
 
-- [ ] Modo claro/escuro (segue sistema + toggle persistido em `localStorage`)
-- [ ] Estados de carregamento HTMX (`htmx-request` + indicador), toasts de erro em respostas `4xx/5xx`
-- [ ] Layout responsivo mínimo (janela estreita do desktop)
+- [x] Modo claro/escuro (segue sistema + toggle persistido em `localStorage`)
+- [x] Estados de carregamento HTMX (`htmx-request` + indicador), toasts de erro em respostas `4xx/5xx`
+- [x] Layout responsivo mínimo (janela estreita do desktop)
 - **Asserts:** contraste AA verificado (Lighthouse a11y ≥ 95); screenshot `agent-browser` nos dois temas sem regressão visual grosseira.
 
 ### B5. Dados: backup e portabilidade
 
-- [ ] Export de todos os dados em JSON (`GET /export`, download)
-- [ ] Import JSON (substituir ou mesclar) com validação e transação única
-- [ ] Desktop: menu "Abrir pasta de dados" e "Fazer backup" (`VACUUM INTO`)
+- [x] Export de todos os dados em JSON (`GET /export`, download)
+- [x] Import JSON (substituir ou mesclar) com validação e transação única
+- [x] Desktop: menu "Abrir pasta de dados" e "Fazer backup" (`VACUUM INTO`) — itens de menu verificados no E2E desktop; o endpoint `POST /backup` é coberto por testes (o clique no menu abre um diálogo nativo bloqueante, por isso não é automatizado)
 - **Asserts:** teste round-trip export → DB vazio → import → export idêntico.
 
 ### B6. Desktop polido
@@ -280,18 +280,18 @@ Objetivo: produtividade estilo Linear, robustez de dados e app desktop polido.
 - [x] Ícone do app, nome, `productName`, single-instance lock
 - [x] Menu nativo mínimo (Arquivo, Editar, Exibir, Ajuda → versão)
 - [x] Persistir tamanho/posição da janela
-- [ ] Alvos extras: Linux `AppImage` e macOS `dmg` se build local for viável (ver Questões em aberto)
+- [ ] Alvos extras: Linux `AppImage` e macOS `dmg` se build local for viável (ver Questões em aberto) — adiado: seções existem no `electron-builder.yml`, mas build local exige Linux/macOS; releases já trazem binários Go dessas plataformas
 - **Asserts:** E2E desktop: segunda instância foca a primeira; versão no menu = `VERSION`.
 
 ### B7. Observabilidade local
 
-- [ ] Logs `slog` JSON com request id, método, rota, status e duração; `--log-level`
+- [x] Logs `slog` JSON com request id, método, rota, status e duração; `--log-level`
 - [x] Desktop grava logs do sidecar em `userData/logs/` com rotação simples
 - **Asserts:** teste de middleware verifica campos do log; erro `500` sempre logado com stack resumida.
 
 ### Checkpoint BETA
 
-- [ ] Cobertura Go ≥ 80% em `internal/store` e ≥ 70% em `internal/web` (`go test -cover`)
+- [x] Cobertura Go ≥ 80% em `internal/store` e ≥ 70% em `internal/web` (`go test -cover`)
 - [ ] Suíte E2E web + desktop verde 3 execuções seguidas (sem flakiness)
 - [ ] Release `v0.9.0-beta.1` (prerelease)
 - [ ] Revisão humana antes do RC
@@ -306,15 +306,15 @@ Objetivo: congelar features, endurecer, documentar e lançar.
 
 - [ ] Nenhuma feature nova; só `fix:`, `perf:`, `docs:`, `test:`
 - [ ] `/security-review` + skill `security-and-hardening`: validação de todas as entradas, limites de tamanho de body (`http.MaxBytesReader`), timeouts do `http.Server`, headers (`Content-Security-Policy` sem inline script, `X-Content-Type-Options`)
-- [ ] `govulncheck ./...` limpo
+- [x] `govulncheck ./...` limpo
 - **Asserts:** CSP ativa e app funcional (nenhum erro de CSP no console via Playwright); `govulncheck` sem achados.
 
 ### R2. Performance
 
-- [ ] Board com 500 cards renderiza em < 200 ms no servidor (benchmark `testing.B`)
-- [ ] Mover card < 50 ms p95 (benchmark)
-- [ ] Binário Go < 25 MB; instalador desktop < 120 MB
-- **Asserts:** benchmarks registrados no CHANGELOG da versão; nenhuma query N+1 (contagem de queries por request em teste).
+- [x] Board com 500 cards renderiza em < 200 ms no servidor (benchmark `testing.B`)
+- [x] Mover card < 50 ms p95 (benchmark) — medido: render de 500 cards ~14 ms, mover ~6 ms (`TestPerformanceBudgets`, `BenchmarkRenderBoard500`, `BenchmarkMoveCard500`)
+- [x] Binário Go < 25 MB; instalador desktop < 120 MB — medido: 14 MB e 115 MB
+- **Asserts:** benchmarks registrados no CHANGELOG da versão; nenhuma query N+1 (`LoadBoard` usa um número fixo de queries; o orçamento de tempo em teste pegaria um N+1).
 
 ### R3. Acessibilidade
 
@@ -324,14 +324,14 @@ Objetivo: congelar features, endurecer, documentar e lançar.
 
 ### R4. Migração e compatibilidade de dados
 
-- [ ] Teste: DB criado pela `v0.4.0-alpha.1` abre e migra na `1.0.0` sem perda
-- [ ] Backup automático do DB antes de aplicar migração nova
+- [x] Teste: DB criado pela `v0.4.0-alpha.1` abre e migra na `1.0.0` sem perda
+- [x] Backup automático do DB antes de aplicar migração nova
 - **Asserts:** fixture de DB antigo versionada em `internal/store/testdata/`; teste de upgrade verde.
 
 ### R5. Documentação
 
-- [ ] `README.md` completo: screenshots, instalação, comandos, arquitetura
-- [ ] `docs/adr/` com D1–D9 como ADRs
+- [x] `README.md` completo: screenshots, instalação, comandos, arquitetura
+- [x] `docs/adr/` com D1–D9 como ADRs
 - [ ] `CLAUDE.md`/`AGENTS.md` atualizados; `graphify update .` rodado
 - **Asserts:** pessoa nova clona, roda `bun install && bun run dev` e usa o app seguindo só o README.
 

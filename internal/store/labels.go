@@ -13,8 +13,8 @@ type Label struct {
 }
 
 type LabelInput struct {
-	Name  string
-	Color string
+	Name  string `json:"name"`
+	Color string `json:"color"`
 }
 
 func (in *LabelInput) normalize() error {
