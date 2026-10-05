@@ -79,7 +79,18 @@ Regras:
 
 ## Contrato Electron ↔ sidecar
 
-1. Electron executa `kanban --addr 127.0.0.1:0 --db <userData>/kanban.db`.
-2. Go imprime exatamente `LISTENING 127.0.0.1:<porta>` no stdout quando pronto.
-3. Electron abre a URL; bloqueia navegação externa; `contextIsolation`, `sandbox`, sem `nodeIntegration`.
-4. `before-quit` encerra o sidecar. Sidecar morto → Electron mostra erro e sai.
+1. Electron executa `kanban --addr 127.0.0.1:0 --db <userData>/kanban.db --log-level info`. Binário: `bin/kanban(.exe)` no dev; `process.resourcesPath/bin/` no app empacotado (`extraResources`).
+2. Go imprime exatamente `LISTENING 127.0.0.1:<porta>` no stdout quando pronto. Sem essa linha em 15 s → diálogo de erro e o app sai.
+3. Electron abre a URL; `will-navigate` bloqueia origens diferentes da do servidor e `setWindowOpenHandler` nega janelas novas (links `http(s)`/`mailto` vão para o navegador via `shell.openExternal`); `contextIsolation`, `sandbox`, sem `nodeIntegration`. O preload só expõe `window.kanbanDesktop = { platform, version }`.
+4. `before-quit`/`will-quit` encerram o sidecar. Sidecar morto inesperadamente → Electron mostra erro e sai.
+5. stderr do sidecar (logs JSON) é anexado a `<userData>/logs/kanban.log`; se passar de 5 MB na inicialização vira `kanban.log.1` (substitui o anterior).
+6. "Arquivo → Fazer backup" chama `POST /backup` com o `fetch` do Node (sem `Origin`, passa pela proteção CSRF) e mostra o caminho retornado.
+
+### Shell desktop (`desktop/main.ts`)
+
+- `KANBAN_DATA_DIR` sobrescreve `userData` (via `app.setPath` antes do `ready`); usado nos testes para DB isolado. O single-instance lock é por `userData`.
+- Single instance: a segunda instância sai e a primeira restaura/foca a janela.
+- Tamanho, posição e maximizado salvos em `<userData>/window-state.json`; restaurados só se a janela intersectar algum display atual.
+- Menu pt-BR: Arquivo (Fazer backup, Abrir pasta de dados, Sair), Editar (roles), Exibir (recarregar, DevTools só fora do pacote, zoom, tela cheia), Ajuda (Sobre com `app.getVersion()` e link do GitHub).
+- `bun build` gera `desktop/dist/main.js` e `preload.js` (CJS, ignorados no git). O preload é resolvido via `app.getAppPath()` porque o Bun embute `__dirname` como diretório do fonte.
+- `desktop/electron-builder.yml`: Windows `nsis` + `portable` x64 em `dist/desktop/`; seções Linux `AppImage` e macOS `dmg` definidas, mas não buildadas localmente. Ícone `desktop/build/icon.png` (512×512, renderizado de `internal/web/static/favicon.svg`).

@@ -153,11 +153,11 @@ Objetivo: repositório, ferramentas, esqueleto executável em todas as camadas (
 
 ### E7. Spike Electron (risco alto → cedo)
 
-- [ ] `desktop/main.ts`: resolve caminho do binário (dev: `bin/`; empacotado: `process.resourcesPath`), spawn com `--addr 127.0.0.1:0 --db <app.getPath('userData')>/kanban.db`, espera `LISTENING`, abre `BrowserWindow`
-- [ ] `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true`; navegação externa bloqueada (`will-navigate`, `setWindowOpenHandler`)
-- [ ] Sidecar encerrado em `before-quit`; se o sidecar morrer, janela mostra erro e app sai
-- [ ] `electron-builder.yml`: `extraResources` com binário Go; alvo Windows `nsis` + `portable`
-- [ ] E2E desktop: Playwright `_electron.launch` abre app e vê o dashboard
+- [x] `desktop/main.ts`: resolve caminho do binário (dev: `bin/`; empacotado: `process.resourcesPath`), spawn com `--addr 127.0.0.1:0 --db <app.getPath('userData')>/kanban.db`, espera `LISTENING`, abre `BrowserWindow`
+- [x] `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true`; navegação externa bloqueada (`will-navigate`, `setWindowOpenHandler`)
+- [x] Sidecar encerrado em `before-quit`; se o sidecar morrer, janela mostra erro e app sai
+- [x] `electron-builder.yml`: `extraResources` com binário Go; alvo Windows `nsis` + `portable`
+- [x] E2E desktop: Playwright `_electron.launch` abre app e vê o dashboard
 - **Asserts:** `bun run dist` gera instalador; app instalado abre, cria `kanban.db` em `userData`; nenhum processo `kanban.exe` órfão após fechar (checar no Gerenciador de Tarefas / `tasklist`).
 
 ### E8. Release local `0.0.1`
@@ -277,16 +277,16 @@ Objetivo: produtividade estilo Linear, robustez de dados e app desktop polido.
 
 ### B6. Desktop polido
 
-- [ ] Ícone do app, nome, `productName`, single-instance lock
-- [ ] Menu nativo mínimo (Arquivo, Editar, Exibir, Ajuda → versão)
-- [ ] Persistir tamanho/posição da janela
+- [x] Ícone do app, nome, `productName`, single-instance lock
+- [x] Menu nativo mínimo (Arquivo, Editar, Exibir, Ajuda → versão)
+- [x] Persistir tamanho/posição da janela
 - [ ] Alvos extras: Linux `AppImage` e macOS `dmg` se build local for viável (ver Questões em aberto)
 - **Asserts:** E2E desktop: segunda instância foca a primeira; versão no menu = `VERSION`.
 
 ### B7. Observabilidade local
 
 - [ ] Logs `slog` JSON com request id, método, rota, status e duração; `--log-level`
-- [ ] Desktop grava logs do sidecar em `userData/logs/` com rotação simples
+- [x] Desktop grava logs do sidecar em `userData/logs/` com rotação simples
 - **Asserts:** teste de middleware verifica campos do log; erro `500` sempre logado com stack resumida.
 
 ### Checkpoint BETA
