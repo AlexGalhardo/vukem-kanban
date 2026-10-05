@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const port = 8765;
+// E2E_PORT lets parallel worktrees run their suites without clashing.
+const port = Number(process.env.E2E_PORT ?? 8765);
 
 export default defineConfig({
 	outputDir: "test-results",

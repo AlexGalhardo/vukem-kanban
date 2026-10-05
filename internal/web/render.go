@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 	"unicode"
+	"unicode/utf16"
 
 	"github.com/AlexGalhardo/trello-golang-htmx/internal/store"
 )
@@ -117,7 +118,8 @@ type page struct {
 	Priorities []string
 	NotFound   bool
 	Prefix     string                // short board key shown before card ids, e.g. "KAN-12"
-	OOB        bool                  // render the fragment as an hx-swap-oob update
+	OOB        bool                  // render sidebar/card fragments as hx-swap-oob updates
+	ColumnsOOB bool                  // render #columns as an hx-swap-oob update (label changes)
 	Errors     store.ValidationError // form errors keyed by field
 	Form       url.Values            // submitted values to refill a form after an error
 }
@@ -194,7 +196,23 @@ func (s *Server) render(w http.ResponseWriter, status int, data any, names ...st
 // toast asks the client (app.js) to show a notification via the HX-Trigger header.
 func toast(w http.ResponseWriter, level, msg string) {
 	b, _ := json.Marshal(map[string]any{"toast": map[string]string{"level": level, "message": msg}})
-	w.Header().Set("HX-Trigger", string(b))
+	w.Header().Set("HX-Trigger", asciiJSON(b))
+}
+
+// asciiJSON escapes every non-ASCII rune as \uXXXX. Browsers decode header
+// values as Latin-1, so raw UTF-8 ("Não") would arrive garbled ("NÃ£o").
+func asciiJSON(b []byte) string {
+	var sb strings.Builder
+	for _, r := range string(b) {
+		if r < 0x80 {
+			sb.WriteRune(r)
+			continue
+		}
+		for _, u := range utf16.Encode([]rune{r}) {
+			fmt.Fprintf(&sb, `\u%04x`, u)
+		}
+	}
+	return sb.String()
 }
 
 // fail maps store errors to HTTP statuses. htmx requests get no swap and a

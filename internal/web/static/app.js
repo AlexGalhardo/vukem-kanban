@@ -79,7 +79,7 @@
 	document.body.addEventListener("htmx:after:request", (e) => {
 		const form = e.target;
 		const res = e.detail.ctx && e.detail.ctx.response;
-		if (res && res.ok && form.matches && form.matches("form[data-reset-on-success]")) {
+		if (res && res.status < 400 && form.matches && form.matches("form[data-reset-on-success]")) {
 			form.reset();
 			const input = $("input", form);
 			if (input) input.focus();

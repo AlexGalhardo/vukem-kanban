@@ -87,17 +87,22 @@ func (s *Server) showBoard(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
-	//nolint:gosec // plain HTTP on 127.0.0.1: Secure would make the browser drop the cookie
-	http.SetCookie(w, &http.Cookie{
-		Name: lastBoardCookie, Value: strconv.FormatInt(id, 10), Path: "/",
-		MaxAge: 365 * 24 * 3600, HttpOnly: true, SameSite: http.SameSiteLaxMode,
-	})
+	rememberBoard(w, id)
 	if isHX(r) {
 		p.OOB = true
 		s.render(w, http.StatusOK, p, "main", "sidebar")
 		return
 	}
 	s.render(w, http.StatusOK, p, "layout")
+}
+
+// rememberBoard stores the board the landing page should reopen.
+func rememberBoard(w http.ResponseWriter, id int64) {
+	//nolint:gosec // plain HTTP on 127.0.0.1: Secure would make the browser drop the cookie
+	http.SetCookie(w, &http.Cookie{
+		Name: lastBoardCookie, Value: strconv.FormatInt(id, 10), Path: "/",
+		MaxAge: 365 * 24 * 3600, HttpOnly: true, SameSite: http.SameSiteLaxMode,
+	})
 }
 
 func boardInput(r *http.Request) store.BoardInput {
@@ -136,6 +141,7 @@ func (s *Server) createBoard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	boardURL := fmt.Sprintf("/boards/%d", b.ID)
+	rememberBoard(w, b.ID)
 	if !isHX(r) {
 		http.Redirect(w, r, boardURL, http.StatusSeeOther) //nolint:gosec // path built from an integer id, not user input
 		return
@@ -527,8 +533,8 @@ func (s *Server) renderLabels(w http.ResponseWriter, r *http.Request, boardID in
 		s.fail(w, r, err)
 		return
 	}
-	p.Errors, p.Form, p.OOB = verr, r.Form, true
-	s.render(w, status, p, "labels-dialog", "columns")
+	p.Errors, p.Form, p.ColumnsOOB = verr, r.Form, true
+	s.render(w, status, p, "labels-dialog", "columns", "filter-label")
 }
 
 func labelInput(r *http.Request) store.LabelInput {

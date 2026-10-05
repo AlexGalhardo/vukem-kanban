@@ -46,6 +46,14 @@ Como:
 4. Remova: `git worktree remove ../trello-golang-htmx-<slug>` e `git branch -d feat/<slug>`.
 5. Marque `[x]` no `PLAN.md` e atualize `CHANGELOG.md` somente na `main`, após o merge (evita conflito nesses arquivos).
 
+### Worktree de QA
+
+Em paralelo ao desenvolvimento, mantenha uma worktree de QA que simula um testador humano adversarial:
+
+- Sobe o próprio binário numa porta dedicada (ex.: `8790`) com DB temporário e usa `agent-browser`/Playwright para clicar em tudo, testar fluxos alternativos, edge cases, fallbacks (servidor fora do ar, abas concorrentes, entradas inválidas) e abuso HTTP direto.
+- Não altera código de produto: entrega uma lista de bugs com severidade, passos de reprodução, esperado × obtido e evidência. Specs de reprodução opcionais ficam em `e2e/qa/`.
+- O orquestrador corrige na `main` e transforma cada bug relevante em teste de regressão (Go ou E2E).
+
 ## Versionamento (SemVer 2.0.0)
 
 - Fonte única: arquivo `VERSION`. Injetada no Go via `-ldflags "-X main.version=$(cat VERSION)"` e no Electron via `package.json` do desktop.

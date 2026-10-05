@@ -195,6 +195,11 @@ func TestCreateBoard(t *testing.T) {
 
 	w = a.do("POST", "/boards", url.Values{"name": {"Novo"}, "color": {"green"}}, hx)
 	expect(t, w, http.StatusCreated, "Novo", `id="sidebar"`, `hx-swap-oob="innerHTML"`)
+	// #columns lives inside the main swap: marking it OOB would make htmx
+	// pull it out before #main exists and the board would render empty.
+	if regexp.MustCompile(`id="columns"[^>]*hx-swap-oob`).MatchString(w.Body.String()) {
+		t.Fatal("columns must not be out-of-band in the main swap")
+	}
 	if w.Header().Get("HX-Push-Url") == "" || w.Header().Get("HX-Retarget") != "#main" {
 		t.Fatalf("headers = %v", w.Header())
 	}
@@ -337,7 +342,7 @@ func TestLabels(t *testing.T) {
 
 	expect(t, a.do("GET", fmt.Sprintf("/boards/%d/labels", v.Board.ID), nil, hx), 200, `data-testid="labels-dialog"`, "Nenhuma label")
 	expect(t, a.do("POST", fmt.Sprintf("/boards/%d/labels", v.Board.ID), url.Values{"name": {""}, "color": {"red"}}, hx), 422, "obrigatório")
-	expect(t, a.do("POST", fmt.Sprintf("/boards/%d/labels", v.Board.ID), url.Values{"name": {"bug"}, "color": {"red"}}, hx), 200, "bug", `id="columns"`, `data-board-id="1" hx-swap-oob="true"`)
+	expect(t, a.do("POST", fmt.Sprintf("/boards/%d/labels", v.Board.ID), url.Values{"name": {"bug"}, "color": {"red"}}, hx), 200, "bug", `id="columns"`, `data-board-id="1" hx-swap-oob="true"`, `id="filter-label"`)
 	labels, _ := a.store.ListLabels(ctx, v.Board.ID)
 	l := labels[0]
 
@@ -392,7 +397,7 @@ func TestExportImportBackup(t *testing.T) {
 
 	w = a.do("POST", "/backup", nil, hx)
 	expect(t, w, 200, "kanban-20260615-120000.db")
-	if !strings.Contains(w.Header().Get("HX-Trigger"), "Backup salvo") {
+	if trig := w.Header().Get("HX-Trigger"); !strings.Contains(trig, "Backup salvo") || strings.ContainsFunc(trig, func(r rune) bool { return r > 127 }) {
 		t.Fatal("backup toast missing")
 	}
 }

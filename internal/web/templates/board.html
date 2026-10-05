@@ -22,12 +22,7 @@
 			class="input w-52 pl-7" hx-get="/boards/{{$b.ID}}" hx-include="#filters" hx-trigger="input changed delay:250ms, search">
 	</div>
 	<label class="sr-only" for="filter-label">Filtrar por label</label>
-	<select id="filter-label" name="label" class="input" hx-get="/boards/{{$b.ID}}" hx-include="#filters" hx-trigger="change">
-		<option value="">Label: todas</option>
-		{{- range .View.Labels}}
-		<option value="{{.ID}}" {{if eq $.View.Filter.LabelID .ID}}selected{{end}}>{{.Name}}</option>
-		{{- end}}
-	</select>
+	{{template "filter-label" .}}
 	<label class="sr-only" for="filter-priority">Filtrar por prioridade</label>
 	<select id="filter-priority" name="priority" class="input" hx-get="/boards/{{$b.ID}}" hx-include="#filters" hx-trigger="change">
 		<option value="">Prioridade: todas</option>
@@ -43,8 +38,17 @@
 {{template "columns" .}}
 {{end}}
 
+{{define "filter-label"}}
+<select id="filter-label" name="label" class="input" hx-get="/boards/{{.View.Board.ID}}" hx-include="#filters" hx-trigger="change" {{if .ColumnsOOB}}hx-swap-oob="true"{{end}}>
+	<option value="">Label: todas</option>
+	{{- range .View.Labels}}
+	<option value="{{.ID}}" {{if eq $.View.Filter.LabelID .ID}}selected{{end}}>{{.Name}}</option>
+	{{- end}}
+</select>
+{{end}}
+
 {{define "columns"}}
-<div id="columns" class="flex min-h-0 flex-1 flex-col" data-board-id="{{.View.Board.ID}}" {{if .OOB}}hx-swap-oob="true"{{end}}>
+<div id="columns" class="flex min-h-0 flex-1 flex-col" data-board-id="{{.View.Board.ID}}" {{if .ColumnsOOB}}hx-swap-oob="true"{{end}}>
 	{{- if .View.Filter.Active}}
 	<p class="flex items-center gap-2 px-4 pt-2.5 text-[12px] text-muted" data-testid="filter-summary">
 		Mostrando <span class="tabular-nums text-fg">{{.View.Shown}}</span> de <span class="tabular-nums">{{.View.Total}}</span> cards
@@ -89,12 +93,11 @@
 				</div>
 				<form class="space-y-2 border-t border-line pt-3" hx-delete="/columns/{{$c.ID}}" hx-include="this" hx-target="#columns" hx-swap="outerHTML"
 					hx-confirm="Excluir a coluna {{$c.Name}}?">
-					{{- if $c.Cards}}
-					<label class="label" for="move-to-{{$c.ID}}">Mover os cards para</label>
+					{{- /* Always rendered: cards may be added after this menu was rendered. */}}
+					<label class="label" for="move-to-{{$c.ID}}">Se houver cards, mover para</label>
 					<select id="move-to-{{$c.ID}}" name="move_to" class="input w-full">
 						{{- range .Columns}}{{if ne .ID $c.ID}}<option value="{{.ID}}">{{.Name}}</option>{{end}}{{end}}
 					</select>
-					{{- end}}
 					<button class="btn-danger w-full">Excluir coluna</button>
 				</form>
 			</div>
