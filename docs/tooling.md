@@ -31,12 +31,13 @@ Todos via `bun run <script>` (definidos em `package.json`).
 | `bun run lint` | `golangci-lint run ./...` + `golangci-lint fmt --diff` |
 | `bun run fmt` | `golangci-lint fmt` (aplica gofumpt + goimports) |
 | `bun run test` | `go test -race ./...` |
-| `bun run smoke` | builda, sobe binário, checa `/healthz` e `/`, derruba |
+| `bun run smoke` | builda, sobe binário, checa `--version`, `/healthz`, `/`, estáticos e criação de quadro, derruba |
+| `bun run test:scripts` | testes unitários dos scripts TypeScript (`bun test scripts/`) |
 | `bun run e2e` | Playwright web contra servidor real com DB temporário |
 | `bun run e2e:desktop` | Playwright `_electron` |
 | `bun run desktop` | Electron em modo dev |
 | `bun run dist` | electron-builder |
-| `bun run release <versão>` | release local completa (ver `docs/workflow.md`) |
+| `bun run release <versão> [--dry-run] [--skip-desktop]` | release local completa (ver `docs/workflow.md`) |
 
 Validação focada durante desenvolvimento: `go test ./internal/store/ -run TestNome`, `golangci-lint run ./internal/web/...`.
 

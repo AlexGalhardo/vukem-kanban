@@ -13,3 +13,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Documentação do projeto em `docs/` (arquitetura, tooling, workflow, testes, skills) indexada em `AGENTS.md` e `CLAUDE.md`.
 - Skills de agente locais em `.claude/skills/`: graphify, karpathy-guidelines, ponytail, addyosmani/agent-skills.
 - `.editorconfig`, `.gitattributes` e `.gitignore`.
+- `scripts/smoke.ts` (`bun run smoke`): sobe o binário com DB temporário e porta aleatória e valida `--version`, `/healthz`, `/`, estáticos, headers de segurança e criação de quadro.
+- `scripts/release.ts` (`bun run release <versão> [--dry-run] [--skip-desktop]`): release local com bump de `VERSION`/`package.json`, rotação do CHANGELOG, gates, binários Go para 5 plataformas, instalador desktop opcional, `SHA256SUMS`, tag e `gh release create`.
+- Testes unitários dos helpers de release em `scripts/release.test.ts` (`bun run test:scripts`).
