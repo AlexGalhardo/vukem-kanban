@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.1] - 2026-10-05
+
 ### Added
 
 - `PLAN.md` com plano de implementação por fases (ESTRUTURA, ALPHA, BETA, 1.0.0 RC).
@@ -30,3 +32,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Desktop: logs do sidecar em `userData/logs/kanban.log` com rotação simples (5 MB); `KANBAN_DATA_DIR` sobrescreve a pasta de dados.
 - Empacotamento com electron-builder (`desktop/electron-builder.yml`): instalador NSIS e executável portable para Windows x64.
 - E2E desktop (`e2e/desktop/app.spec.ts`): dashboard carrega, `kanban.db` criado, backup, sem `kanban.exe` órfão após fechar e segunda instância.
+
+[Unreleased]: https://github.com/AlexGalhardo/trello-golang-htmx/compare/v0.0.1...HEAD
+[0.0.1]: https://github.com/AlexGalhardo/trello-golang-htmx/releases/tag/v0.0.1
