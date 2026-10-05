@@ -10,7 +10,7 @@ Fixar versões exatas (sem `^`/`~`), sempre a última estável. Nunca `latest`, 
 | `modernc.org/sqlite` | v1.60.1 | driver SQLite pure Go |
 | `golangci-lint` | 2.14.0 | lint + format Go |
 | Bun | 1.4.2 | gerenciador de pacotes JS e task runner |
-| `htmx.org` | 2.0.11 | vendorizado em `internal/web/static/htmx.min.js` |
+| `htmx.org` | 4.0.0 | vendorizado em `internal/web/static/htmx.min.js` |
 | `tailwindcss` / `@tailwindcss/cli` | 4.3.3 | CSS |
 | `electron` | 44.5.1 | desktop |
 | `electron-builder` | 26.15.3 | instaladores |

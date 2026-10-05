@@ -36,16 +36,21 @@ Sem Electron, o mesmo binário funciona como app web: `bin/kanban --addr 127.0.0
 | D6 | Drag-and-drop HTML5 nativo + JS mínimo | Evita SortableJS; `position` reindexada em transação |
 | D7 | Bun como task runner (`package.json`) | `make` ausente no Windows; Bun já é necessário para Tailwind/Electron/Playwright |
 | D8 | Release local via `scripts/release.ts` + `gh` | GitHub Actions desativado (billing) |
-| D9 | Sem auth/CSRF; servidor só em `127.0.0.1` | App local single-user |
+| D9 | Sem auth; CSRF barrado por `http.CrossOriginProtection`; servidor só em `127.0.0.1` | App local single-user, mas páginas maliciosas no navegador poderiam postar no loopback |
 
 ADRs completos irão para `docs/adr/` na fase 1.0.0 RC (ver `PLAN.md` R5).
 
-## Convenções HTTP/HTMX
+## Convenções HTTP/htmx 4
 
 - Rotas com padrões do Go 1.22+: `GET /boards/{id}`, `POST /columns/{id}/cards`, `POST /cards/{id}/move`.
-- Requisição com header `HX-Request` → parcial. Sem header → página completa com layout. Mesma URL serve os dois.
-- Navegação HTMX que muda de board usa `HX-Push-Url`.
-- Erro de validação → status `422` + fragmento do formulário com mensagens inline.
+- `HX-Request: true` com `HX-Request-Type: partial` → fragmento. Sem htmx, ou `HX-Request-Type: full` (requisições com `hx-select`, restauração de histórico) → página completa com layout. Mesma URL serve os dois.
+- htmx 4 tem herança explícita: atributos herdados usam `:inherited` (ex.: `hx-indicator:inherited`, `hx-target:inherited` no form de filtros).
+- htmx 4 troca respostas 4xx/5xx no DOM. Por isso `fail()` responde a htmx com `HX-Reswap: none` + toast no `HX-Trigger`; só `422` (re-render de formulário com erros) é trocado. A config `noSwap` inclui `5xx` como rede de segurança.
+- `HX-Trigger` sempre em JSON escapado para ASCII (`\uXXXX`): o navegador decodifica headers como Latin-1.
+- Mutações re-renderizam com o filtro ativo lido de `HX-Current-URL`.
+- Fragmentos fora do alvo usam `hx-swap-oob`; um elemento OOB nunca pode estar dentro do conteúdo principal da mesma resposta (o htmx 4 o extrai antes do swap). Flags separadas: `OOB` (sidebar/card) e `ColumnsOOB` (`#columns` + filtro de label).
+- Eventos JS usam os nomes do htmx 4 (`htmx:after:settle`, `htmx:after:request`, `htmx:response:error`, `htmx:error`); o detalhe vem em `event.detail.ctx`.
+- Navegação que muda de board usa `HX-Push-Url`.
 - Escaping sempre via `html/template`; nunca `template.HTML` com entrada do usuário.
 
 ## Layout do código

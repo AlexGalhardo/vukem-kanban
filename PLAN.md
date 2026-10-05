@@ -24,7 +24,7 @@ Versões estáveis verificadas em 2026-10-05. Fixar exatamente (sem `^`/`~`).
 | Banco | SQLite via `modernc.org/sqlite` (pure Go, sem CGO) + `database/sql` | v1.60.1 |
 | Migrações | runner próprio: `embed` + tabela `schema_migrations` | stdlib |
 | Lint/format Go | `golangci-lint` v2 (linters + formatters `gofumpt` e `goimports`) | 2.14.0 |
-| Frontend | HTMX (arquivo vendorizado, sem CDN — app precisa funcionar offline) | 2.0.11 |
+| Frontend | htmx 4 (arquivo vendorizado, sem CDN — app precisa funcionar offline) | 4.0.0 |
 | CSS | Tailwind CSS v4 via `@tailwindcss/cli` | 4.3.3 |
 | Desktop | Electron + electron-builder | 44.5.1 / 26.15.3 |
 | E2E | `@playwright/test` (web e Electron via `_electron`) | 1.63.0 |
@@ -37,11 +37,11 @@ Versões estáveis verificadas em 2026-10-05. Fixar exatamente (sem `^`/`~`).
 - **D2 — `modernc.org/sqlite` em vez de `mattn/go-sqlite3`.** Sem CGO: cross-compile trivial para Windows/Linux/macOS e build do Electron sem toolchain C.
 - **D3 — Binário único.** Templates, CSS gerado e `htmx.min.js` embutidos via `go:embed`. O binário roda sozinho como app web.
 - **D4 — Electron como casca fina.** O processo main do Electron sobe o binário Go como sidecar (`--addr 127.0.0.1:0 --db <userData>/kanban.db`), lê a porta impressa no stdout (`LISTENING <addr>`) e abre `BrowserWindow` nessa URL. Ao fechar a janela, encerra o sidecar.
-- **D5 — HTMX server-driven.** Handlers retornam fragmentos HTML. Requisição com header `HX-Request` recebe parcial; sem ele, página completa (navegação direta funciona).
+- **D5 — htmx 4 server-driven.** Handlers retornam fragmentos HTML. Requisição com `HX-Request` e `HX-Request-Type: partial` recebe parcial; sem eles (ou `full`, usado por `hx-select` e restauração de histórico), página completa. Erros de htmx voltam com `HX-Reswap: none` + toast via `HX-Trigger` (JSON escapado em ASCII).
 - **D6 — Drag-and-drop nativo.** HTML5 DnD + ~50 linhas de JS que chamam `htmx.ajax('POST', '/cards/{id}/move', ...)`. Sem SortableJS. Reordenação por `position INTEGER` reindexada dentro de transação.
 - **D7 — Bun como task runner.** `package.json` concentra scripts (`dev`, `build`, `test`, `lint`, `e2e`, `release`). Scripts complexos em `scripts/*.ts` rodados com `bun`. Evita `make` (ausente no Windows).
 - **D8 — Release local.** `scripts/release.ts` gera builds, extrai a seção da versão do `CHANGELOG.md` e publica com `gh release create`. Nenhum workflow em `.github/workflows/`.
-- **D9 — Sem CSRF/auth.** App local single-user; servidor escuta só em `127.0.0.1`. Validação de entrada e escaping (`html/template`) continuam obrigatórios.
+- **D9 — Sem auth; CSRF via stdlib.** App local single-user; servidor escuta só em `127.0.0.1`. `http.CrossOriginProtection` (Go 1.25+) barra POST/PUT/DELETE cross-site de páginas maliciosas abertas no navegador. Validação de entrada e escaping (`html/template`) continuam obrigatórios.
 
 ## 4. Estrutura de diretórios alvo
 
@@ -112,43 +112,43 @@ Objetivo: repositório, ferramentas, esqueleto executável em todas as camadas (
 - [x] `.gitattributes` com `* text=auto eol=lf`
 - [x] `.gitignore` (bin/, dist/, node_modules/, *.db, `internal/web/static/app.css`, graphify-out/, test-results/, playwright-report/)
 - [x] `CHANGELOG.md` no formato Keep a Changelog 1.1.0 com `[Unreleased]`
-- [ ] `VERSION` contendo `0.0.1` (fonte única da versão; injetada via `-ldflags "-X main.version=..."` e lida pelo `package.json` do desktop)
-- [ ] `README.md` curto: o que é, como rodar, comandos
+- [x] `VERSION` contendo `0.0.1` (fonte única da versão; injetada via `-ldflags "-X main.version=..."` e lida pelo `package.json` do desktop)
+- [x] `README.md` curto: o que é, como rodar, comandos
 - [x] Commit inicial `chore: bootstrap repository`
 - [x] Paralelização com git worktrees documentada e seguida (`docs/workflow.md`)
 - **Asserts:** `git log --oneline` mostra commit convencional; editor abre `.go` com tab de largura 4.
 
 ### E3. Toolchain Go
 
-- [ ] `go mod init github.com/AlexGalhardo/trello-golang-htmx` com `go 1.27.0`
-- [ ] `.golangci.yml` (v2): linters `errcheck`, `govet`, `staticcheck`, `unused`, `ineffassign`, `gosec`, `revive`, `bodyclose`, `sqlclosecheck`, `rowserrcheck`, `errorlint`, `misspell`; formatters `gofumpt`, `goimports`
-- [ ] `cmd/kanban/main.go` mínimo: flags `--addr`, `--db`, `--version`; `GET /healthz` → `200 ok`; imprime `LISTENING <addr>` no stdout; shutdown gracioso com `signal.NotifyContext`
-- [ ] Teste unitário de `/healthz` com `httptest`
+- [x] `go mod init github.com/AlexGalhardo/trello-golang-htmx` com `go 1.27.0`
+- [x] `.golangci.yml` (v2): linters `errcheck`, `govet`, `staticcheck`, `unused`, `ineffassign`, `gosec`, `revive`, `bodyclose`, `sqlclosecheck`, `rowserrcheck`, `errorlint`, `misspell`; formatters `gofumpt`, `goimports`
+- [x] `cmd/kanban/main.go` mínimo: flags `--addr`, `--db`, `--version`; `GET /healthz` → `200 ok`; imprime `LISTENING <addr>` no stdout; shutdown gracioso com `signal.NotifyContext`
+- [x] Teste unitário de `/healthz` com `httptest`
 - **Asserts:** `golangci-lint run ./...` limpo; `golangci-lint fmt --diff` vazio; `go test ./...` verde; `go build` gera binário < 20 MB.
 
 ### E4. Toolchain frontend
 
-- [ ] `package.json` com dependências fixadas (sem `^`): `@tailwindcss/cli`, `tailwindcss`, `@playwright/test`, `electron`, `electron-builder`, `typescript`
-- [ ] `bun install` e `bun.lock` versionado
-- [ ] `web/styles/input.css` com `@import "tailwindcss";` + `@source "../../internal/web/templates";` + tokens de tema (`@theme`)
-- [ ] `scripts/vendor-htmx.ts` copia `node_modules/htmx.org/dist/htmx.min.js` (2.0.11) para `internal/web/static/`
-- [ ] Scripts `dev`, `build`, `lint`, `test` no `package.json`
+- [x] `package.json` com dependências fixadas (sem `^`): `@tailwindcss/cli`, `tailwindcss`, `@playwright/test`, `electron`, `electron-builder`, `typescript`
+- [x] `bun install` e `bun.lock` versionado
+- [x] `web/styles/input.css` com `@import "tailwindcss";` + `@source "../../internal/web/templates";` + tokens de tema (`@theme`)
+- [x] `scripts/vendor-htmx.ts` copia `node_modules/htmx.org/dist/htmx.min.js` (4.0.0) para `internal/web/static/`
+- [x] Scripts `dev`, `build`, `lint`, `test` no `package.json`
 - **Asserts:** `bun run build` gera `app.css` minificado contendo só classes usadas; `bin/kanban` serve `/static/htmx.min.js` com `200`.
 
 ### E5. Layout base embutido
 
-- [ ] `internal/web/templates/layout.html` com `<script src="/static/htmx.min.js">`, CSS, `hx-boost` desativado
-- [ ] `GET /` renderiza layout com placeholder "Nenhum projeto ainda"
-- [ ] `go:embed` de `templates/` e `static/`; templates parseados uma vez no boot
-- [ ] Teste de integração: `GET /` → `200`, `Content-Type: text/html; charset=utf-8`, contém `<title>`
+- [x] `internal/web/templates/layout.html` com `<script src="/static/htmx.min.js">`, CSS, `hx-boost` desativado
+- [x] `GET /` renderiza layout com placeholder "Nenhum projeto ainda"
+- [x] `go:embed` de `templates/` e `static/`; templates parseados uma vez no boot
+- [x] Teste de integração: `GET /` → `200`, `Content-Type: text/html; charset=utf-8`, contém `<title>`
 - **Asserts:** binário roda fora da pasta do projeto e ainda serve CSS/JS (prova do embed).
 
 ### E6. Esqueleto de testes (todas as camadas)
 
-- [ ] Unit/integração: `go test -race ./...`; helper `testutil.NewDB(t)` com SQLite em `t.TempDir()`
+- [x] Unit/integração: `go test -race ./...`; helpers `newStore(t)`/`newApp(t)` com SQLite em `t.TempDir()`
 - [x] Smoke: `scripts/smoke.ts` builda, sobe `bin/kanban --addr 127.0.0.1:0`, lê porta do stdout, checa `/healthz` e `/`, mata processo, exit code ≠ 0 em falha
-- [ ] E2E web: `playwright.config.ts` com `webServer` subindo o binário com DB temporário; 1 teste "dashboard carrega"
-- [ ] QA: `e2e/agent-browser/smoke.md` com roteiro reproduzível para `agent-browser` (abrir, snapshot, screenshot)
+- [x] E2E web: `playwright.config.ts` com `webServer` subindo o binário com DB temporário; 1 teste "dashboard carrega"
+- [x] QA: `e2e/agent-browser/smoke.md` com roteiro reproduzível para `agent-browser` (abrir, snapshot, screenshot)
 - **Asserts:** `bun run test`, `bun run smoke`, `bun run e2e` verdes em máquina limpa (após `bun install` + `bunx playwright install chromium`).
 
 ### E7. Spike Electron (risco alto → cedo)
@@ -170,9 +170,9 @@ Objetivo: repositório, ferramentas, esqueleto executável em todas as camadas (
 
 ### Checkpoint ESTRUTURA
 
-- [ ] Todos os comandos da seção 6 existem e funcionam (exceto features)
+- [x] Todos os comandos da seção 6 existem e funcionam (exceto features)
 - [ ] `v0.0.1` publicada no GitHub com binários e instalador
-- [ ] Revisão humana antes de seguir para ALPHA
+- [x] Revisão humana antes de seguir para ALPHA — dispensada: o usuário pediu execução contínua até o fim do plano
 
 ---
 
