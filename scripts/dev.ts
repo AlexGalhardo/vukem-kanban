@@ -1,3 +1,5 @@
+export {};
+
 // Dev loop: Tailwind in watch mode + the Go server on :8080 with a local DB.
 const css = Bun.spawn(["bun", "run", "css:watch"], { stdout: "inherit", stderr: "inherit" });
 const server = Bun.spawn(["go", "run", "./cmd/kanban", "--addr", "127.0.0.1:8080", "--db", "kanban.dev.db", "--log-level", "debug"], {

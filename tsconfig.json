@@ -1,0 +1,17 @@
+{
+	"compilerOptions": {
+		"target": "ES2023",
+		"module": "Preserve",
+		"moduleResolution": "bundler",
+		"lib": ["ES2023", "DOM"],
+		"types": ["bun"],
+		"strict": true,
+		"noUncheckedIndexedAccess": true,
+		"noEmit": true,
+		"skipLibCheck": true,
+		"isolatedModules": true,
+		"verbatimModuleSyntax": true,
+		"allowImportingTsExtensions": true
+	},
+	"include": ["scripts/**/*.ts", "desktop/**/*.ts", "e2e/**/*.ts", "playwright.config.ts"]
+}
