@@ -15,6 +15,18 @@ type Filter struct {
 	Today       string // YYYY-MM-DD, required when Overdue is set
 }
 
+// Has reports whether card id is shown in the view.
+func (v BoardView) Has(id int64) bool {
+	for _, c := range v.Columns {
+		for _, card := range c.Cards {
+			if card.ID == id {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // Active reports whether any filter is applied.
 func (f Filter) Active() bool {
 	return f.Query != "" || f.LabelID != 0 || f.HasPriority || f.Overdue
@@ -65,11 +77,7 @@ func (s *Store) LoadBoard(ctx context.Context, id int64, f Filter) (BoardView, e
 	}
 
 	where, args := []string{"col.board_id = ?"}, []any{id}
-	if f.Query != "" {
-		like := "%" + escapeLike(f.Query) + "%"
-		where = append(where, `(c.title LIKE ? ESCAPE '\' OR c.description LIKE ? ESCAPE '\')`)
-		args = append(args, like, like)
-	}
+	q := strings.ToLower(f.Query)
 	if f.HasPriority {
 		where = append(where, "c.priority = ?")
 		args = append(args, f.Priority)
@@ -95,6 +103,11 @@ func (s *Store) LoadBoard(ctx context.Context, id int64, f Filter) (BoardView, e
 		c, err := scanCard(cardRows)
 		if err != nil {
 			return BoardView{}, err
+		}
+		// Text search runs in Go: SQLite's LIKE only folds ASCII case, which
+		// fails for pt-BR ("ção" vs "ÇÃO").
+		if q != "" && !strings.Contains(strings.ToLower(c.Title), q) && !strings.Contains(strings.ToLower(c.Description), q) {
+			continue
 		}
 		ci := index[c.ColumnID]
 		cardAt[c.ID] = [2]int{ci, len(v.Columns[ci].Cards)}
@@ -130,8 +143,4 @@ func (s *Store) LoadBoard(ctx context.Context, id int64, f Filter) (BoardView, e
 		}
 	}
 	return v, lrows.Err()
-}
-
-func escapeLike(s string) string {
-	return strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(s)
 }

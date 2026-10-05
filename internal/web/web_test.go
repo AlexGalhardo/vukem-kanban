@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -27,9 +28,30 @@ type testApp struct {
 	logs  *bytes.Buffer
 }
 
+// tempDir is t.TempDir with a retrying cleanup: on Windows SQLite's WAL/SHM
+// files can stay locked for a moment after Close, which made t.TempDir's
+// cleanup fail intermittently with "directory not empty".
+func tempDir(t *testing.T) string {
+	t.Helper()
+	dir, err := os.MkdirTemp("", "kanban-test-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		for range 40 {
+			if os.RemoveAll(dir) == nil {
+				return
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
+		t.Logf("could not remove %s", dir)
+	})
+	return dir
+}
+
 func newApp(t *testing.T) *testApp {
 	t.Helper()
-	st, err := store.Open(context.Background(), filepath.Join(t.TempDir(), "web.db"))
+	st, err := store.Open(context.Background(), filepath.Join(tempDir(t), "web.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -181,10 +203,12 @@ func TestShowBoardFullAndPartial(t *testing.T) {
 	expect(t, fullType, 200, "<!doctype html>")
 
 	expect(t, a.do("GET", "/boards/999", nil), 404, "Projeto não encontrado")
-	expect(t, a.do("GET", "/boards/abc", nil), 400)
+	expect(t, a.do("GET", "/boards/abc", nil), 400, "<!doctype html>", "Projeto não encontrado")
+	expect(t, a.do("GET", "/nope/route", nil), 404, "<!doctype html>")
+	expect(t, a.do("POST", "/nope/route", nil, hx), 404)
 	w := a.do("GET", "/boards/999", nil, hx)
-	if w.Code != 404 || w.Header().Get("HX-Reswap") != "none" || !strings.Contains(w.Header().Get("HX-Trigger"), "toast") {
-		t.Fatalf("htmx 404 = %d reswap=%q trigger=%q", w.Code, w.Header().Get("HX-Reswap"), w.Header().Get("HX-Trigger"))
+	if w.Code != 404 || w.Header().Get("HX-Reswap") != "none" || !strings.Contains(w.Header().Get("X-Toast"), `"level":"error"`) {
+		t.Fatalf("htmx 404 = %d reswap=%q toast=%q", w.Code, w.Header().Get("HX-Reswap"), w.Header().Get("X-Toast"))
 	}
 }
 
@@ -253,8 +277,8 @@ func TestCardFlow(t *testing.T) {
 	id := cards[0].ID
 
 	w = a.do("POST", fmt.Sprintf("/columns/%d/cards", col), url.Values{"title": {""}}, hx)
-	if w.Code != 400 || w.Header().Get("HX-Reswap") != "none" {
-		t.Fatalf("empty title = %d %v", w.Code, w.Header())
+	if w.Code != 400 || w.Header().Get("HX-Reswap") != "none" || !strings.Contains(w.Body.String(), "Título: obrigatório") {
+		t.Fatalf("empty title = %d %v %s", w.Code, w.Header(), w.Body.String())
 	}
 
 	expect(t, a.do("GET", fmt.Sprintf("/cards/%d", id), nil, hx), 200, `data-testid="card-dialog"`, "Primeiro &lt;b&gt;")
@@ -276,14 +300,18 @@ func TestCardFlow(t *testing.T) {
 		t.Fatal("overdue marker missing")
 	}
 
-	w = a.do("POST", fmt.Sprintf("/cards/%d/move", id), url.Values{"column_id": {fmt.Sprint(v.Columns[2].ID)}, "position": {"0"}}, hx,
+	w = a.do("POST", fmt.Sprintf("/cards/%d/move", id), url.Values{"column_id": {fmt.Sprint(v.Columns[2].ID)}}, hx,
 		currentURL(fmt.Sprintf("/boards/%d", v.Board.ID)))
-	expect(t, w, 200, `id="columns"`)
+	// Only the source and target columns come back, out of band.
+	expect(t, w, 200, fmt.Sprintf(`id="column-%d"`, v.Columns[0].ID), fmt.Sprintf(`id="column-%d"`, v.Columns[2].ID), `hx-swap-oob="true"`)
+	if strings.Contains(w.Body.String(), fmt.Sprintf(`id="column-%d"`, v.Columns[1].ID)) || strings.Contains(w.Body.String(), `id="columns"`) {
+		t.Fatal("move must not re-render untouched columns")
+	}
 	if c, _ = a.store.GetCard(context.Background(), id); c.ColumnID != v.Columns[2].ID {
 		t.Fatalf("moved to %d", c.ColumnID)
 	}
 	expect(t, a.do("POST", fmt.Sprintf("/cards/%d/move", id), url.Values{"column_id": {"x"}}, hx), 400)
-	expect(t, a.do("POST", fmt.Sprintf("/cards/%d/move", id), url.Values{"column_id": {fmt.Sprint(v.Columns[0].ID)}, "position": {"end"}}, hx), 200)
+	expect(t, a.do("POST", fmt.Sprintf("/cards/%d/move", id), url.Values{"column_id": {fmt.Sprint(v.Columns[0].ID)}}, hx), 200)
 
 	w = a.do("DELETE", fmt.Sprintf("/cards/%d", id), nil, hx)
 	expect(t, w, 200, `hx-swap-oob="delete"`, fmt.Sprintf(`id="count-%d"`, v.Columns[0].ID))
@@ -332,6 +360,75 @@ func TestColumnsAndFilterPreserved(t *testing.T) {
 	expect(t, a.do("PUT", "/columns/999", url.Values{"name": {"x"}}, hx), 404)
 
 	expect(t, a.do("GET", board, url.Values{"q": {"beta"}, "priority": {"0"}, "overdue": {"1"}}), 200, "Mostrando")
+}
+
+func TestFilteredMutationsRerenderBoard(t *testing.T) {
+	a := newApp(t)
+	v := a.board("Filt")
+	board := fmt.Sprintf("/boards/%d", v.Board.ID)
+	col := v.Columns[0].ID
+	_, _ = a.store.CreateCard(context.Background(), col, "alpha")
+
+	w := a.do("POST", fmt.Sprintf("/columns/%d/cards", col), url.Values{"title": {"beta"}}, hx, currentURL(board+"?q=alpha"))
+	expect(t, w, http.StatusCreated, `id="columns"`, `data-testid="filter-summary"`)
+	if w.Header().Get("HX-Retarget") != "#columns" || !strings.Contains(w.Header().Get("X-Toast"), "oculto pelo filtro") {
+		t.Fatalf("headers = %v", w.Header())
+	}
+	cards := a.mustCards(v.Board.ID)
+	w = a.do("DELETE", fmt.Sprintf("/cards/%d", cards[0].ID), nil, hx, currentURL(board+"?q=a"))
+	expect(t, w, 200, `id="columns"`, `hx-swap-oob="true"`)
+}
+
+func TestColumnValidation(t *testing.T) {
+	a := newApp(t)
+	v := a.board("Wip")
+	w := a.do("PUT", fmt.Sprintf("/columns/%d", v.Columns[0].ID), url.Values{"name": {"x"}, "wip_limit": {"abc"}}, hx)
+	if w.Code != 400 || !strings.Contains(w.Body.String(), "Limite WIP") {
+		t.Fatalf("wip abc = %d %s", w.Code, w.Body.String())
+	}
+	expect(t, a.do("POST", fmt.Sprintf("/boards/%d/columns", v.Board.ID), url.Values{"name": {"x"}, "wip_limit": {"5.5"}}, hx), 400)
+}
+
+func TestImportGuards(t *testing.T) {
+	a := newApp(t)
+	a.board("Keep")
+	exported := a.do("GET", "/export", nil).Body.Bytes()
+	upload := func(content []byte, mode string) *httptest.ResponseRecorder {
+		var buf bytes.Buffer
+		mw := multipart.NewWriter(&buf)
+		fw, _ := mw.CreateFormFile("file", "x.json")
+		_, _ = fw.Write(content)
+		_ = mw.WriteField("mode", mode)
+		_ = mw.Close()
+		r := httptest.NewRequest("POST", "/import", &buf)
+		r.Header.Set("Content-Type", mw.FormDataContentType())
+		r.Header.Set("HX-Request", "true")
+		rec := httptest.NewRecorder()
+		a.srv.ServeHTTP(rec, r)
+		return rec
+	}
+	expect(t, upload(append(append([]byte{}, exported...), []byte(" garbage")...), "merge"), 422, "conteúdo extra")
+	w := upload(exported, "replace")
+	if w.Code != 204 {
+		t.Fatalf("replace import = %d %s", w.Code, w.Body.String())
+	}
+	matches, _ := filepath.Glob(filepath.Join(filepath.Dir(a.store.Path()), "backups", "kanban-*.db"))
+	if len(matches) != 1 {
+		t.Fatalf("replace import must back up first, backups = %v", matches)
+	}
+}
+
+func TestDeclaredOversizedBodyIs413(t *testing.T) {
+	a := newApp(t)
+	r := httptest.NewRequest("POST", "/boards", strings.NewReader("name=x"))
+	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	r.Header.Set("HX-Request", "true")
+	r.ContentLength = maxFormBytes + 1
+	w := httptest.NewRecorder()
+	a.srv.ServeHTTP(w, r)
+	if w.Code != http.StatusRequestEntityTooLarge || w.Header().Get("HX-Reswap") != "none" {
+		t.Fatalf("oversized = %d %v", w.Code, w.Header())
+	}
 }
 
 func TestLabels(t *testing.T) {
@@ -396,9 +493,15 @@ func TestExportImportBackup(t *testing.T) {
 	}
 
 	w = a.do("POST", "/backup", nil, hx)
-	expect(t, w, 200, "kanban-20260615-120000.db")
-	if trig := w.Header().Get("HX-Trigger"); !strings.Contains(trig, "Backup salvo") || strings.ContainsFunc(trig, func(r rune) bool { return r > 127 }) {
-		t.Fatal("backup toast missing")
+	expect(t, w, 200, "kanban-20260615-120000-000")
+	first := w.Body.String()
+	if trig := w.Header().Get("X-Toast"); !strings.Contains(trig, "Backup salvo") || strings.ContainsFunc(trig, func(r rune) bool { return r > 127 }) {
+		t.Fatalf("backup toast = %q", trig)
+	}
+	// Two backups in the same instant must not collide (used to be a 500).
+	second := a.do("POST", "/backup", nil, hx)
+	if second.Code != 200 || second.Body.String() == first {
+		t.Fatalf("second backup = %d %q (first %q)", second.Code, second.Body.String(), first)
 	}
 }
 

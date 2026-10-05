@@ -3,7 +3,7 @@
 <head>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
-	<meta name="htmx-config" content='{"includeIndicatorCSS":false,"noSwap":[204,304,"5xx"]}'>
+	<meta name="htmx-config" content='{"includeIndicatorCSS":false,"noSwap":[204,304,"5xx"],"history":"reload"}'>
 	<title>{{if .View}}{{.View.Board.Name}} · {{end}}Kanban</title>
 	<link rel="icon" href="/static/favicon.svg?v={{.Version}}" type="image/svg+xml">
 	<link rel="stylesheet" href="/static/app.css?v={{.Version}}">
@@ -18,6 +18,7 @@
 		{{template "sidebar" .}}
 		<main id="main" class="flex min-w-0 flex-1 flex-col bg-canvas" tabindex="-1">{{template "main" .}}</main>
 	</div>
+	<div id="sidebar-backdrop" class="fixed inset-0 z-30 hidden bg-black/40 md:hidden" data-action="sidebar-close" aria-hidden="true"></div>
 	<div id="modal"></div>
 	<div id="toasts" class="pointer-events-none fixed bottom-4 right-4 z-50 flex w-80 flex-col gap-2" role="status" aria-live="polite"></div>
 	{{template "shortcuts-dialog"}}
@@ -26,6 +27,11 @@
 </html>{{end}}
 
 {{define "main"}}
+{{- if not .View}}
+<div class="flex h-12 items-center px-3 md:hidden">
+	<button type="button" class="btn-ghost" data-action="sidebar" aria-label="Mostrar projetos" aria-controls="sidebar">{{template "icon-menu"}}</button>
+</div>
+{{- end}}
 {{- if .NotFound}}
 <div class="m-auto max-w-sm p-8 text-center">
 	<h1 class="text-[15px] font-semibold">Projeto não encontrado</h1>
@@ -53,7 +59,7 @@
 {{end}}
 
 {{define "shortcuts-dialog"}}
-<dialog id="shortcuts-dialog" class="dialog w-full max-w-sm" aria-labelledby="shortcuts-title">
+<dialog closedby="any" id="shortcuts-dialog" class="dialog w-full max-w-sm" aria-labelledby="shortcuts-title">
 	{{template "dialog-header" (dict "ID" "shortcuts-title" "Title" "Atalhos de teclado")}}
 	<dl class="mt-4 grid grid-cols-[1fr_auto] gap-y-2.5 text-[13px]">
 		<dt>Command palette</dt><dd><kbd>Ctrl</kbd> <kbd>K</kbd></dd>
@@ -69,7 +75,7 @@
 {{end}}
 
 {{define "command-palette"}}
-<dialog id="command-palette" class="dialog mt-[12vh] w-full max-w-xl p-0" aria-label="Command palette">
+<dialog closedby="any" id="command-palette" class="dialog mt-[12vh] w-full max-w-xl p-0" aria-label="Command palette">
 	<div class="flex items-center gap-2 border-b border-line px-4">
 		<span class="text-faint">{{template "icon-search"}}</span>
 		<input id="command-input" type="text" role="combobox" aria-expanded="true" aria-controls="command-list" aria-autocomplete="list"

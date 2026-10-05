@@ -96,3 +96,30 @@ test("second instance focuses the first and exits", async () => {
 	await expect.poll(() => app.evaluate(() => globalThis.__kanbanSecondInstances)).toBe(1);
 	expect(app.windows()).toHaveLength(1);
 });
+
+test("full flow inside the desktop window: project, cards, move, edit, archive", async () => {
+	const win = await app.firstWindow();
+	win.on("dialog", (d) => void d.accept());
+	await win.getByTestId("empty-state").getByRole("button", { name: /Criar projeto/ }).click();
+	await win.getByTestId("new-board-dialog").getByLabel("Nome").fill("Desktop flow");
+	await win.getByTestId("new-board-dialog").getByRole("button", { name: "Criar projeto" }).click();
+	await expect(win.getByTestId("board-title")).toHaveText("Desktop flow");
+
+	const input = win.getByLabel("Novo card em Backlog", { exact: true }).last();
+	await input.fill("card desktop");
+	await input.press("Enter");
+	const card = win.getByTestId("card").filter({ hasText: "card desktop" });
+	await expect(card).toHaveCount(1);
+
+	await card.locator(".card-open").click();
+	const dialog = win.getByTestId("card-dialog");
+	await dialog.getByLabel("Status").selectOption({ label: "Em progresso" });
+	await dialog.getByLabel("Prioridade").selectOption({ label: "Alta" });
+	await dialog.getByRole("button", { name: "Salvar alterações" }).click();
+	const progress = win.getByTestId("column").filter({ has: win.getByRole("heading", { name: "Em progresso", exact: true }) });
+	await expect(progress.getByTestId("card")).toContainText("Prioridade: Alta");
+
+	await win.getByRole("button", { name: "Configurações" }).click();
+	await win.getByTestId("board-settings").getByRole("button", { name: "Arquivar projeto" }).click();
+	await expect(win.getByTestId("archived-list").locator("a", { hasText: "Desktop flow" })).toHaveCount(1);
+});

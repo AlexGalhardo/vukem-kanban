@@ -42,13 +42,26 @@ func (s *Server) boardPage(ctx context.Context, id int64, f store.Filter) (page,
 }
 
 func (s *Server) notFound(w http.ResponseWriter, r *http.Request) {
+	s.notFoundStatus(w, r, http.StatusNotFound)
+}
+
+func (s *Server) notFoundStatus(w http.ResponseWriter, r *http.Request, status int) {
 	p, err := s.newPage(r.Context())
 	if err != nil {
 		http.Error(w, "erro interno", http.StatusInternalServerError)
 		return
 	}
 	p.NotFound = true
-	s.render(w, http.StatusNotFound, p, "layout")
+	s.render(w, status, p, "layout")
+}
+
+// fallback answers unknown routes: a full page for GET, plain text otherwise.
+func (s *Server) fallback(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodGet && r.Header.Get("HX-Request") != "true" {
+		s.notFound(w, r)
+		return
+	}
+	http.Error(w, "Não encontrado.", http.StatusNotFound)
 }
 
 // dashboard is the landing page: it opens the last visited board, falling
@@ -273,11 +286,30 @@ func (s *Server) createColumn(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
-	if _, err := s.store.CreateColumn(r.Context(), id, store.ColumnInput{Name: r.FormValue("name"), WIPLimit: formInt(r, "wip_limit")}); err != nil {
+	wip, err := wipLimit(r)
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	if _, err := s.store.CreateColumn(r.Context(), id, store.ColumnInput{Name: r.FormValue("name"), WIPLimit: wip}); err != nil {
 		s.fail(w, r, err)
 		return
 	}
 	s.renderColumns(w, r, id)
+}
+
+// wipLimit parses the optional WIP limit; text like "abc" or "5.5" is an
+// error instead of silently clearing the limit.
+func wipLimit(r *http.Request) (int, error) {
+	v := strings.TrimSpace(r.FormValue("wip_limit"))
+	if v == "" {
+		return 0, nil
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil {
+		return 0, store.ValidationError{"wip_limit": "use um número inteiro"}
+	}
+	return n, nil
 }
 
 func (s *Server) columnFromPath(w http.ResponseWriter, r *http.Request) (store.Column, bool) {
@@ -299,7 +331,12 @@ func (s *Server) updateColumn(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if _, err := s.store.UpdateColumn(r.Context(), c.ID, store.ColumnInput{Name: r.FormValue("name"), WIPLimit: formInt(r, "wip_limit")}); err != nil {
+	wip, err := wipLimit(r)
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	if _, err := s.store.UpdateColumn(r.Context(), c.ID, store.ColumnInput{Name: r.FormValue("name"), WIPLimit: wip}); err != nil {
 		s.fail(w, r, err)
 		return
 	}
@@ -360,6 +397,22 @@ func (s *Server) createCard(w http.ResponseWriter, r *http.Request) {
 	c, err := s.store.CreateCard(r.Context(), colID, r.FormValue("title"))
 	if err != nil {
 		s.fail(w, r, err)
+		return
+	}
+	if f := s.currentFilter(r); f.Active() {
+		// With a filter on, re-render the board so counts and the summary
+		// stay right; say so when the new card is hidden by the filter.
+		p, err := s.boardPage(r.Context(), c.BoardID, f)
+		if err != nil {
+			s.fail(w, r, err)
+			return
+		}
+		if !p.View.Has(c.ID) {
+			toast(w, "info", "Card criado, mas oculto pelo filtro atual.")
+		}
+		w.Header().Set("HX-Retarget", "#columns")
+		w.Header().Set("HX-Reswap", "outerHTML")
+		s.render(w, http.StatusCreated, p, "columns")
 		return
 	}
 	p, err := s.cardPage(r.Context(), c.ID)
@@ -463,6 +516,16 @@ func (s *Server) deleteCard(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	toast(w, "success", "Card excluído.")
+	if f := s.currentFilter(r); f.Active() {
+		bp, err := s.boardPage(r.Context(), p.Card.BoardID, f)
+		if err != nil {
+			s.fail(w, r, err)
+			return
+		}
+		bp.ColumnsOOB = true
+		s.render(w, http.StatusOK, bp, "columns", "modal-clear")
+		return
+	}
 	s.render(w, http.StatusOK, p, "card-delete-oob", "column-header-oob", "modal-clear")
 }
 
@@ -477,20 +540,43 @@ func (s *Server) moveCard(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, errBadRequest)
 		return
 	}
-	pos := formInt(r, "position")
-	if r.FormValue("position") == "end" {
-		pos = 1 << 30 // clamped to the end by the store
-	}
-	if err := s.store.MoveCard(r.Context(), id, colID, pos); err != nil {
-		s.fail(w, r, err)
-		return
-	}
-	col, err := s.store.GetColumn(r.Context(), colID)
+	before, _ := strconv.ParseInt(r.FormValue("before_id"), 10, 64)
+	from, err := s.store.GetCard(r.Context(), id)
 	if err != nil {
 		s.fail(w, r, err)
 		return
 	}
-	s.renderColumns(w, r, col.BoardID)
+	if err := s.store.MoveCardBefore(r.Context(), id, colID, before); err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	// Only the source and target columns changed; re-rendering just those
+	// keeps a drag on a 2000-card board from shipping the whole board back.
+	p, err := s.boardPage(r.Context(), from.BoardID, s.currentFilter(r))
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	s.renderColumnsOOB(w, p, from.ColumnID, colID)
+}
+
+// renderColumnsOOB renders the given columns as out-of-band replacements.
+func (s *Server) renderColumnsOOB(w http.ResponseWriter, p page, ids ...int64) {
+	var parts []fragment
+	n := len(p.View.Columns)
+	seen := map[int64]bool{}
+	for i, c := range p.View.Columns {
+		for _, id := range ids {
+			if c.ID == id && !seen[id] {
+				seen[id] = true
+				parts = append(parts, fragment{"column", map[string]any{
+					"Column": c, "Index": i, "Count": n, "Columns": p.View.Columns,
+					"Today": p.Today, "Prefix": p.Prefix, "OOB": true,
+				}})
+			}
+		}
+	}
+	s.renderParts(w, http.StatusOK, parts...)
 }
 
 func (s *Server) toggleCardLabel(w http.ResponseWriter, r *http.Request) {
@@ -644,10 +730,22 @@ func (s *Server) importData(w http.ResponseWriter, r *http.Request) {
 	dec := json.NewDecoder(f)
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(&snap); err != nil {
-		importErr("JSON inválido: " + err.Error())
+		s.log.Info("import rejected", "err", err)
+		importErr("JSON inválido. Use um arquivo gerado por “Exportar dados”.")
 		return
 	}
-	if err := s.store.Import(r.Context(), snap, r.FormValue("mode") == "replace"); err != nil {
+	if dec.More() {
+		importErr("JSON inválido: há conteúdo extra depois dos dados.")
+		return
+	}
+	replace := r.FormValue("mode") == "replace"
+	if replace {
+		if _, err := s.writeBackup(r); err != nil {
+			s.fail(w, r, err)
+			return
+		}
+	}
+	if err := s.store.Import(r.Context(), snap, replace); err != nil {
 		var verr store.ValidationError
 		if errors.As(err, &verr) {
 			importErr(verr["file"])
@@ -659,20 +757,38 @@ func (s *Server) importData(w http.ResponseWriter, r *http.Request) {
 	redirect(w, r, "/")
 }
 
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
+
 // backup writes a consistent copy of the database to a backups/ folder next
 // to it and returns the file path.
 func (s *Server) backup(w http.ResponseWriter, r *http.Request) {
-	dir := filepath.Join(filepath.Dir(s.store.Path()), "backups")
-	if err := os.MkdirAll(dir, 0o750); err != nil {
-		s.fail(w, r, err)
-		return
-	}
-	dest := filepath.Join(dir, "kanban-"+s.now().Format("20060102-150405")+".db")
-	if err := s.store.Backup(r.Context(), dest); err != nil {
+	dest, err := s.writeBackup(r)
+	if err != nil {
 		s.fail(w, r, err)
 		return
 	}
 	toast(w, "success", "Backup salvo em "+dest)
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	_, _ = w.Write([]byte(dest))
+	_, _ = w.Write([]byte(dest)) //nolint:gosec // text/plain + nosniff: never rendered as HTML
+}
+
+func (s *Server) writeBackup(r *http.Request) (string, error) {
+	dir := filepath.Join(filepath.Dir(s.store.Path()), "backups")
+	if err := os.MkdirAll(dir, 0o750); err != nil {
+		return "", err
+	}
+	// Millisecond resolution plus a counter: two clicks in the same second
+	// used to collide ("output file already exists").
+	stamp := s.now().Format("20060102-150405.000")
+	dest := filepath.Join(dir, "kanban-"+strings.Replace(stamp, ".", "-", 1)+".db")
+	for i := 2; fileExists(dest); i++ {
+		dest = filepath.Join(dir, fmt.Sprintf("kanban-%s-%d.db", strings.Replace(stamp, ".", "-", 1), i))
+	}
+	if err := s.store.Backup(r.Context(), dest); err != nil {
+		return "", err
+	}
+	return dest, nil
 }

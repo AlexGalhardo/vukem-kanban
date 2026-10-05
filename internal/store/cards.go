@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"strings"
 	"time"
 )
 
@@ -46,7 +47,8 @@ type CardInput struct {
 }
 
 func (in *CardInput) normalize() error {
-	in.Title = clampText(in.Title)
+	// Titles are single-line; pasted or Shift+Enter newlines become spaces.
+	in.Title = strings.Join(strings.Fields(in.Title), " ")
 	in.Description = clampText(in.Description)
 	in.DueDate = clampText(in.DueDate)
 	v := ValidationError{}
@@ -167,6 +169,37 @@ func (s *Store) DeleteCard(ctx context.Context, id int64) error {
 		return err
 	})
 }
+
+// MoveCardBefore places a card right before beforeID in columnID, or at the
+// end when beforeID is 0. Anchoring on a card (instead of an index) keeps the
+// drop correct when a filter hides some cards of the column.
+func (s *Store) MoveCardBefore(ctx context.Context, id, columnID, beforeID int64) error {
+	if beforeID == 0 || beforeID == id {
+		return s.MoveCard(ctx, id, columnID, endPosition)
+	}
+	var beforeCol int64
+	var beforePos int
+	if err := s.db.QueryRowContext(ctx, `SELECT column_id, position FROM cards WHERE id = ?`, beforeID).
+		Scan(&beforeCol, &beforePos); err != nil {
+		return orNotFound(err)
+	}
+	if beforeCol != columnID {
+		return ValidationError{"before_id": "card de referência em outra coluna"}
+	}
+	var fromCol int64
+	var fromPos int
+	if err := s.db.QueryRowContext(ctx, `SELECT column_id, position FROM cards WHERE id = ?`, id).Scan(&fromCol, &fromPos); err != nil {
+		return orNotFound(err)
+	}
+	// reposition removes the card first, shifting later cards up by one.
+	if fromCol == columnID && fromPos < beforePos {
+		beforePos--
+	}
+	return s.MoveCard(ctx, id, columnID, beforePos)
+}
+
+// endPosition is clamped by reposition to "after the last card".
+const endPosition = 1 << 30
 
 // MoveCard places a card at position inside columnID. The target column must
 // belong to the same board; out of range positions are clamped.

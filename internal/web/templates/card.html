@@ -1,14 +1,14 @@
 {{define "card"}}
 {{- $c := .Card}}
 <li id="card-{{$c.ID}}" class="card group" draggable="true" data-card-id="{{$c.ID}}" data-testid="card" {{if .OOB}}hx-swap-oob="true"{{end}}>
-	<button type="button" class="card-open block w-full text-left focus:outline-none" hx-get="/cards/{{$c.ID}}" hx-target="#modal">
+	<button type="button" class="card-open block w-full rounded text-left" hx-get="/cards/{{$c.ID}}" hx-target="#modal">
 		<span class="flex items-center gap-2 text-[12px] text-faint">
 			<span class="font-mono tabular-nums">{{.Prefix}}-{{$c.ID}}</span>
 		</span>
 		<span class="mt-1 flex items-start gap-1.5">
 			<span class="mt-px">{{template "priority-icon" $c.Priority}}</span>
 			<span class="sr-only">Prioridade: {{priorityName $c.Priority}}.</span>
-			<span class="line-clamp-3 text-[13px] font-medium leading-snug" data-testid="card-title">{{$c.Title}}</span>
+			<span class="line-clamp-3 break-words text-[13px] font-medium leading-snug [overflow-wrap:anywhere]" data-testid="card-title">{{$c.Title}}</span>
 		</span>
 		{{- if or $c.Labels $c.DueDate $c.Description}}
 		<span class="mt-2 flex flex-wrap items-center gap-1">
@@ -58,11 +58,11 @@
 
 {{define "card-dialog"}}
 {{- $c := .Card}}
-<dialog class="dialog w-full max-w-2xl p-0" aria-labelledby="card-dialog-title" data-testid="card-dialog">
+<dialog closedby="any" class="dialog w-full max-w-2xl p-0" aria-labelledby="card-dialog-title" data-testid="card-dialog">
 	<div class="flex items-center gap-2 border-b border-line px-5 py-3 text-[12px] text-muted">
 		<span class="grid size-4 place-items-center rounded {{chip .View.Board.Color}} text-[9px] font-bold" aria-hidden="true">{{initial .View.Board.Name}}</span>
-		<span>{{.View.Board.Name}}</span><span class="text-faint">›</span>
-		<span id="card-dialog-title" class="font-mono text-fg">{{.Prefix}}-{{$c.ID}}</span>
+		<span class="min-w-0 truncate">{{.View.Board.Name}}</span><span class="text-faint">›</span>
+		<span id="card-dialog-title" class="shrink-0 whitespace-nowrap font-mono text-fg">{{.Prefix}}-{{$c.ID}}</span>
 		<form method="dialog" class="ml-auto"><button class="btn-ghost" aria-label="Fechar">{{template "icon-close"}}</button></form>
 	</div>
 	<form class="grid gap-0 md:grid-cols-[1fr_13rem]" hx-put="/cards/{{$c.ID}}" hx-target="#modal">

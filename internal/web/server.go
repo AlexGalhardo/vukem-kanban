@@ -56,6 +56,7 @@ func (s *Server) routes() *http.ServeMux {
 	})
 
 	mux.HandleFunc("GET /{$}", s.dashboard)
+	mux.HandleFunc("/", s.fallback)
 
 	mux.HandleFunc("GET /boards/new", s.newBoardDialog)
 	mux.HandleFunc("POST /boards", s.createBoard)

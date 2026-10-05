@@ -193,10 +193,35 @@ func (s *Server) render(w http.ResponseWriter, status int, data any, names ...st
 	_, _ = buf.WriteTo(w)
 }
 
-// toast asks the client (app.js) to show a notification via the HX-Trigger header.
+type fragment struct {
+	name string
+	data any
+}
+
+// renderParts is render for fragments that each need their own data.
+func (s *Server) renderParts(w http.ResponseWriter, status int, parts ...fragment) {
+	var buf bytes.Buffer
+	for _, f := range parts {
+		if err := s.tmpl.ExecuteTemplate(&buf, f.name, f.data); err != nil {
+			s.log.Error("render", "template", f.name, "err", err)
+			http.Error(w, "erro ao renderizar", http.StatusInternalServerError)
+			return
+		}
+	}
+	h := w.Header()
+	h.Set("Content-Type", "text/html; charset=utf-8")
+	h.Set("Cache-Control", "no-store")
+	w.WriteHeader(status)
+	_, _ = buf.WriteTo(w)
+}
+
+// toast asks app.js to show a notification. It uses a custom header read on
+// htmx:after:request instead of HX-Trigger: htmx dispatches HX-Trigger events
+// on the source element after the swap, and when the swap removed that
+// element (closing a dialog) the event never reached document.body.
 func toast(w http.ResponseWriter, level, msg string) {
-	b, _ := json.Marshal(map[string]any{"toast": map[string]string{"level": level, "message": msg}})
-	w.Header().Set("HX-Trigger", asciiJSON(b))
+	b, _ := json.Marshal(map[string]string{"level": level, "message": msg})
+	w.Header().Set("X-Toast", asciiJSON(b))
 }
 
 // asciiJSON escapes every non-ASCII rune as \uXXXX. Browsers decode header
@@ -228,7 +253,7 @@ func (s *Server) fail(w http.ResponseWriter, r *http.Request, err error) {
 		status, msg = http.StatusConflict, "A coluna tem cards. Escolha para onde movê-los."
 	case errors.As(err, &verr):
 		// 400, not 422: 422 is reserved for HTML form re-renders that htmx swaps.
-		status, msg = http.StatusBadRequest, verr.Error()
+		status, msg = http.StatusBadRequest, verr.Message()
 	case errors.As(err, &maxErr):
 		status, msg = http.StatusRequestEntityTooLarge, "Conteúdo grande demais."
 	case errors.Is(err, errBadRequest):
@@ -240,8 +265,8 @@ func (s *Server) fail(w http.ResponseWriter, r *http.Request, err error) {
 		// htmx 4 swaps error responses too; keep the page and show a toast.
 		w.Header().Set("HX-Reswap", "none")
 		toast(w, "error", msg)
-	} else if status == http.StatusNotFound {
-		s.notFound(w, r)
+	} else if r.Method == http.MethodGet && (status == http.StatusNotFound || status == http.StatusBadRequest) {
+		s.notFoundStatus(w, r, status)
 		return
 	}
 	http.Error(w, msg, status)

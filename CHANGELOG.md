@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- E2E desktop do fluxo completo (criar projeto, card, mover, editar, arquivar) dentro da janela Electron.
+- Specs de regressão do QA adversarial (`e2e/web/qa-regressions.spec.ts`).
+
+### Changed
+
+- Mover card envia o card de referência (`before_id`) e a resposta traz só as colunas afetadas (menos HTML por arrasto em quadros grandes).
+- Mensagens de erro em português com o nome do campo ("Título: obrigatório"); erros de JSON no import sem detalhes internos.
+- Navegação de histórico (voltar/avançar) recarrega a página.
+- Busca por texto troca a entrada do histórico em vez de empilhar uma por pausa de digitação.
+- Contraste dos textos secundários ajustado para WCAG AA nos dois temas.
+
+### Fixed
+
+- Quadro ficava sem colunas após navegar pela sidebar, criar ou salvar um projeto (htmx 4 extraía `#columns` como OOB).
+- Toasts com acento chegavam corrompidos ("NÃ£o") e toasts de ações em diálogos não apareciam.
+- Filtro de label não recebia labels novas; coluna com cards ocultos pelo filtro não podia ser excluída.
+- Arrastar com filtro ativo gravava a posição errada; falha ao mover agora restaura o quadro.
+- Criar/excluir card com filtro ativo deixava contadores e resumo inconsistentes.
+- Dois backups no mesmo segundo davam erro 500; import "Substituir tudo" agora pede confirmação e faz backup antes.
+- Envio duplo (Enter/clique rápido) criava projetos, cards, colunas e labels duplicados.
+- Busca não ignorava maiúsculas em letras acentuadas.
+- Sidebar em tela estreita não fechava; diálogos não fechavam ao clicar fora; card focado pelo teclado sem foco visível.
+- Limite WIP não numérico era zerado em silêncio; título com quebra de linha; corpo grande retornava 400 em vez de 413.
+- Import aceitava conteúdo extra após o JSON; rotas inexistentes e IDs inválidos mostravam texto cru em vez da página.
+- Limpeza intermitente de diretórios temporários nos testes Go no Windows.
+
 ## [0.0.1] - 2026-10-05
 
 ### Added

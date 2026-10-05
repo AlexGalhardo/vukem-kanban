@@ -52,6 +52,16 @@ func (s *Server) middleware(next http.Handler) http.Handler {
 		if r.URL.Path == "/import" {
 			limit = maxImportBytes
 		}
+		// FormValue swallows MaxBytesError, so a declared oversized body is
+		// rejected here with a proper 413 instead of a misleading 400.
+		if r.ContentLength > limit {
+			if r.Header.Get("HX-Request") == "true" {
+				w.Header().Set("HX-Reswap", "none")
+				toast(w, "error", "Conteúdo grande demais.")
+			}
+			http.Error(w, "Conteúdo grande demais.", http.StatusRequestEntityTooLarge)
+			return
+		}
 		r.Body = http.MaxBytesReader(w, r.Body, limit)
 		next.ServeHTTP(w, r)
 	}))

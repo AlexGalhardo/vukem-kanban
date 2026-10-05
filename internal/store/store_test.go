@@ -8,11 +8,33 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+	"time"
 )
+
+// tempDir is t.TempDir with a retrying cleanup: on Windows SQLite's WAL/SHM
+// files can stay locked for a moment after Close, which made t.TempDir's
+// cleanup fail intermittently with "directory not empty".
+func tempDir(t *testing.T) string {
+	t.Helper()
+	dir, err := os.MkdirTemp("", "kanban-test-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		for range 40 {
+			if os.RemoveAll(dir) == nil {
+				return
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
+		t.Logf("could not remove %s", dir)
+	})
+	return dir
+}
 
 func newStore(t *testing.T) *Store {
 	t.Helper()
-	s, err := Open(context.Background(), filepath.Join(t.TempDir(), "test.db"))
+	s, err := Open(context.Background(), filepath.Join(tempDir(t), "test.db"))
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
@@ -63,7 +85,7 @@ func titles(t *testing.T, s *Store, boardID int64) [][]string {
 }
 
 func TestMigrationsAreIdempotent(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "m.db")
+	path := filepath.Join(tempDir(t), "m.db")
 	for i := range 2 {
 		s, err := Open(context.Background(), path)
 		if err != nil {
@@ -82,7 +104,7 @@ func TestMigrationsAreIdempotent(t *testing.T) {
 }
 
 func TestPendingMigrationBacksUpExistingDatabase(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "old.db")
+	path := filepath.Join(tempDir(t), "old.db")
 	s, err := Open(context.Background(), path)
 	if err != nil {
 		t.Fatal(err)
@@ -472,7 +494,7 @@ func TestExportImportRoundTrip(t *testing.T) {
 func TestBackup(t *testing.T) {
 	s := newStore(t)
 	mustBoard(t, s, "b")
-	dest := filepath.Join(t.TempDir(), "copy.db")
+	dest := filepath.Join(tempDir(t), "copy.db")
 	if err := s.Backup(context.Background(), dest); err != nil {
 		t.Fatal(err)
 	}
@@ -483,5 +505,105 @@ func TestBackup(t *testing.T) {
 	defer func() { _ = c.Close() }()
 	if bs, _ := c.ListBoards(context.Background(), false); len(bs) != 1 {
 		t.Fatalf("backup boards = %d", len(bs))
+	}
+}
+
+func TestSearchFoldsUnicodeCase(t *testing.T) {
+	ctx := context.Background()
+	s := newStore(t)
+	v := mustBoard(t, s, "b")
+	mustCard(t, s, v.Columns[0].ID, "BUG ÇÃO")
+	mustCard(t, s, v.Columns[0].ID, "outro")
+	for _, q := range []string{"ção", "ÇÃO", "bug"} {
+		got, err := s.LoadBoard(ctx, v.Board.ID, Filter{Query: q})
+		if err != nil || got.Shown != 1 {
+			t.Fatalf("query %q shown = %d, err %v", q, got.Shown, err)
+		}
+	}
+}
+
+func TestCardTitleIsSingleLine(t *testing.T) {
+	s := newStore(t)
+	v := mustBoard(t, s, "b")
+	c := mustCard(t, s, v.Columns[0].ID, "  linha 1\nlinha\t2  ")
+	if c.Title != "linha 1 linha 2" {
+		t.Fatalf("title = %q", c.Title)
+	}
+}
+
+// TestMoveCardBeforeWithHiddenCards reproduces a drop while a filter hides
+// cards: the client only knows the visible neighbour it dropped above.
+func TestMoveCardBeforeWithHiddenCards(t *testing.T) {
+	ctx := context.Background()
+	s := newStore(t)
+	v := mustBoard(t, s, "b")
+	col := v.Columns[0].ID
+	ids := map[string]int64{}
+	for _, n := range []string{"x1", "hid", "x2", "x3"} {
+		ids[n] = mustCard(t, s, col, n).ID
+	}
+	if err := s.MoveCardBefore(ctx, ids["x1"], col, ids["x3"]); err != nil {
+		t.Fatal(err)
+	}
+	if got := titles(t, s, v.Board.ID)[0]; !reflect.DeepEqual(got, []string{"hid", "x2", "x1", "x3"}) {
+		t.Fatalf("order = %v", got)
+	}
+	if err := s.MoveCardBefore(ctx, ids["x3"], col, ids["hid"]); err != nil {
+		t.Fatal(err)
+	}
+	if got := titles(t, s, v.Board.ID)[0]; !reflect.DeepEqual(got, []string{"x3", "hid", "x2", "x1"}) {
+		t.Fatalf("order = %v", got)
+	}
+	other := v.Columns[1].ID
+	if err := s.MoveCardBefore(ctx, ids["hid"], other, 0); err != nil {
+		t.Fatal(err)
+	}
+	var verr ValidationError
+	if err := s.MoveCardBefore(ctx, ids["x2"], other, ids["x1"]); !errors.As(err, &verr) {
+		t.Fatalf("anchor in another column = %v", err)
+	}
+	if err := s.MoveCardBefore(ctx, ids["x2"], col, 9999); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("missing anchor = %v", err)
+	}
+}
+
+func TestValidationMessage(t *testing.T) {
+	v := ValidationError{"title": "obrigatório", "due_date": "data inválida"}
+	if got := v.Message(); got != "Entrega: data inválida; Título: obrigatório" {
+		t.Fatalf("message = %q", got)
+	}
+}
+
+func TestNotFoundPaths(t *testing.T) {
+	ctx := context.Background()
+	s := newStore(t)
+	checks := map[string]error{}
+	_, checks["UpdateBoard"] = s.UpdateBoard(ctx, 99, BoardInput{Name: "x"})
+	checks["SetBoardArchived"] = s.SetBoardArchived(ctx, 99, true)
+	_, checks["CreateColumn"] = s.CreateColumn(ctx, 99, ColumnInput{Name: "x"})
+	_, checks["UpdateColumn"] = s.UpdateColumn(ctx, 99, ColumnInput{Name: "x"})
+	checks["DeleteColumn"] = s.DeleteColumn(ctx, 99, 0)
+	checks["MoveColumn"] = s.MoveColumn(ctx, 99, 0)
+	_, checks["GetCard"] = s.GetCard(ctx, 99)
+	_, checks["UpdateCard"] = s.UpdateCard(ctx, 99, CardInput{Title: "x"})
+	_, checks["RenameCard"] = s.RenameCard(ctx, 99, "x")
+	checks["DeleteCard"] = s.DeleteCard(ctx, 99)
+	checks["MoveCard"] = s.MoveCard(ctx, 99, 1, 0)
+	_, checks["CreateLabel"] = s.CreateLabel(ctx, 99, LabelInput{Name: "x", Color: "red"})
+	_, checks["UpdateLabel"] = s.UpdateLabel(ctx, 99, LabelInput{Name: "x", Color: "red"})
+	checks["DeleteLabel"] = s.DeleteLabel(ctx, 99)
+	checks["ToggleCardLabel"] = s.ToggleCardLabel(ctx, 99, 99)
+	_, checks["LoadBoard"] = s.LoadBoard(ctx, 99, Filter{})
+	for name, err := range checks {
+		if !errors.Is(err, ErrNotFound) {
+			t.Errorf("%s: err = %v, want ErrNotFound", name, err)
+		}
+	}
+	var verr ValidationError
+	if _, err := s.CreateColumn(ctx, 1, ColumnInput{Name: "", WIPLimit: -1}); !errors.As(err, &verr) || len(verr) != 2 {
+		t.Fatalf("column validation = %v", err)
+	}
+	if _, err := s.CreateLabel(ctx, 1, LabelInput{Name: "x", Color: "nope"}); !errors.As(err, &verr) {
+		t.Fatalf("label validation = %v", err)
 	}
 }

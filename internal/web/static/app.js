@@ -25,15 +25,25 @@
 		setTimeout(() => el.remove(), level === "error" ? 6000 : 3500);
 	}
 
-	// Server messages arrive through the HX-Trigger header ({"toast": {...}}).
-	document.body.addEventListener("toast", (e) => toast(e.detail.message, e.detail.level));
-	// Errors without a server toast (e.g. a 5xx from a proxy) still surface.
-	document.body.addEventListener("htmx:response:error", (e) => {
+	// Server messages arrive in the X-Toast header (ASCII-escaped JSON). It is
+	// read on htmx:after:request, which fires before the swap, so the toast
+	// shows even when the swap removes the element that made the request.
+	document.addEventListener("htmx:after:request", (e) => {
 		const res = e.detail.ctx && e.detail.ctx.response;
-		if (!res || res.status === 422 || res.headers.get("HX-Trigger")) return;
-		toast(`Erro ${res.status}`, "error");
+		if (!res) return;
+		const header = res.headers.get("X-Toast");
+		if (header) {
+			try {
+				const t = JSON.parse(header);
+				toast(t.message, t.level);
+			} catch (err) {
+				toast("Resposta inesperada do servidor.", "error");
+			}
+		} else if (res.status >= 400 && res.status !== 422) {
+			toast(`Erro ${res.status}`, "error");
+		}
 	});
-	document.body.addEventListener("htmx:error", (e) => {
+	document.addEventListener("htmx:error", (e) => {
 		if (!(e.detail.ctx && e.detail.ctx.response)) toast("Sem conexão com o servidor.", "error");
 	});
 
@@ -68,11 +78,7 @@
 	document.addEventListener("change", (e) => {
 		const select = e.target.closest("[data-move-card]");
 		if (!select) return;
-		htmx.ajax("POST", `/cards/${select.dataset.moveCard}/move`, {
-			target: "#columns",
-			swap: "outerHTML",
-			values: { column_id: select.value, position: "end" },
-		}).then(() => toast("Status atualizado.", "success"));
+		moveCard(select.dataset.moveCard, select.value, 0);
 	});
 
 	// ---------- Forms ----------
@@ -134,13 +140,27 @@
 		}
 	}
 
+	// On narrow screens the sidebar is an overlay with a backdrop; Esc, a
+	// backdrop click or navigating closes it.
 	function toggleSidebar(force) {
 		const nav = $("#sidebar");
 		if (!nav) return;
 		const show = force ?? nav.classList.contains("hidden");
 		nav.classList.toggle("hidden", !show);
 		nav.classList.toggle("flex", show);
+		const backdrop = $("#sidebar-backdrop");
+		if (backdrop) backdrop.classList.toggle("hidden", !show);
 	}
+	const sidebarOverlayOpen = () => {
+		const backdrop = $("#sidebar-backdrop");
+		return backdrop && !backdrop.classList.contains("hidden");
+	};
+	document.addEventListener("keydown", (e) => {
+		if (e.key === "Escape" && sidebarOverlayOpen()) toggleSidebar(false);
+	});
+	document.addEventListener("htmx:before:request", (e) => {
+		if (sidebarOverlayOpen() && e.target.closest && e.target.closest("#sidebar")) toggleSidebar(false);
+	});
 
 	function focusNewCard(columnId) {
 		const input = columnId ? $(`#new-card-${columnId}`) : $("[data-new-card]");
@@ -159,6 +179,7 @@
 			case "shortcuts": return $("#shortcuts-dialog").showModal();
 			case "palette": return openPalette();
 			case "sidebar": return toggleSidebar();
+			case "sidebar-close": return toggleSidebar(false);
 		}
 	});
 
@@ -184,13 +205,37 @@
 		$$(".drop-target").forEach((z) => z.classList.remove("drop-target"));
 	});
 
-	function dropIndex(zone, y) {
+	// The drop is anchored on the visible card it lands above (not an index):
+	// with a filter on, hidden cards would make an index wrong.
+	function dropBefore(zone, y) {
 		const cards = $$("li.card", zone).filter((c) => c !== dragged);
-		const i = cards.findIndex((c) => {
+		return cards.find((c) => {
 			const r = c.getBoundingClientRect();
 			return y < r.top + r.height / 2;
+		}) || null;
+	}
+
+	// moveCard asks the server to move a card; the response replaces only the
+	// affected columns out of band. On any failure the board is re-fetched so
+	// an optimistic DOM move never lies about what was saved.
+	function moveCard(id, columnId, beforeId) {
+		const action = `/cards/${id}/move`;
+		let status = 0;
+		// htmx.ajax resolves without the response, so read it from the event.
+		const record = (e) => {
+			const ctx = e.detail.ctx;
+			if (ctx && ctx.request && ctx.request.action === action && ctx.response) status = ctx.response.status;
+		};
+		document.addEventListener("htmx:after:request", record);
+		return htmx.ajax("POST", action, {
+			swap: "none",
+			values: { column_id: columnId, before_id: beforeId || 0 },
+		}).catch(() => {}).finally(() => {
+			document.removeEventListener("htmx:after:request", record);
+			if (!status || status >= 400) {
+				htmx.ajax("GET", location.href, { target: "#columns", select: "#columns", swap: "outerHTML" }).catch(() => {});
+			}
 		});
-		return { index: i === -1 ? cards.length : i, before: i === -1 ? null : cards[i] };
 	}
 
 	document.addEventListener("dragover", (e) => {
@@ -200,25 +245,20 @@
 		e.dataTransfer.dropEffect = "move";
 		$$(".drop-target").forEach((z) => z !== zone && z.classList.remove("drop-target"));
 		zone.classList.add("drop-target");
-		const { before } = dropIndex(zone, e.clientY);
-		zone.insertBefore(marker, before);
+		zone.insertBefore(marker, dropBefore(zone, e.clientY));
 	});
 
 	document.addEventListener("drop", (e) => {
 		const zone = e.target.closest && e.target.closest("[data-dropzone]");
 		if (!zone || !dragged) return;
 		e.preventDefault();
-		const { index, before } = dropIndex(zone, e.clientY);
+		const before = dropBefore(zone, e.clientY);
 		const id = dragged.dataset.cardId;
 		// Optimistic move so the UI responds instantly; the server response
-		// re-renders the board (counts, WIP limits) right after.
+		// re-renders the two columns (counts, WIP limits) right after.
 		zone.insertBefore(dragged, before);
 		marker.remove();
-		htmx.ajax("POST", `/cards/${id}/move`, {
-			target: "#columns",
-			swap: "outerHTML",
-			values: { column_id: zone.dataset.columnId, position: index },
-		});
+		moveCard(id, zone.dataset.columnId, before ? before.dataset.cardId : 0);
 	});
 
 	// ---------- Command palette ----------

@@ -182,60 +182,60 @@ Objetivo: kanban usável no dia a dia. Fatias verticais (schema + repositório +
 
 ### A1. Banco e migrações
 
-- [ ] `store.Open(path)`: aplica PRAGMAs (`foreign_keys`, `journal_mode=WAL`, `busy_timeout`); `SetMaxOpenConns(1)` para escrita segura
-- [ ] Runner de migrações: lê `migrations/*.sql` embutido, ordena, aplica cada um em transação, registra em `schema_migrations`; idempotente
-- [ ] `0001_init.sql` com tabelas da seção 5 + índices `(board_id, position)`, `(column_id, position)`
+- [x] `store.Open(path)`: aplica PRAGMAs (`foreign_keys`, `journal_mode=WAL`, `busy_timeout`); `SetMaxOpenConns(1)` para escrita segura
+- [x] Runner de migrações: lê `migrations/*.sql` embutido, ordena, aplica cada um em transação, registra em `schema_migrations`; idempotente
+- [x] `0001_init.sql` com tabelas da seção 5 + índices `(board_id, position)`, `(column_id, position)`
 - **Asserts:** teste aplica migrações 2× sem erro; teste confirma FK em cascata (apagar board apaga colunas e cards); `PRAGMA foreign_keys` retorna 1.
 
 ### A2. Projetos (boards) — criar e listar
 
-- [ ] Repositório `Boards.Create/List/Get` com testes de integração
-- [ ] Criar board cria as 5 colunas padrão na mesma transação
-- [ ] Sidebar lista boards; form `hx-post="/boards"` insere item na sidebar e abre o board (`HX-Push-Url`)
-- [ ] Validação: nome obrigatório, 1–80 chars; erro renderizado inline com `422`
+- [x] Repositório `Boards.Create/List/Get` com testes de integração
+- [x] Criar board cria as 5 colunas padrão na mesma transação
+- [x] Sidebar lista boards; form `hx-post="/boards"` insere item na sidebar e abre o board (`HX-Push-Url`)
+- [x] Validação: nome obrigatório, 1–80 chars; erro renderizado inline com `422`
 - **Asserts:** E2E "criar projeto → aparece na sidebar → quadro com 5 colunas"; teste de handler cobre `201`/`422`; XSS: nome `<script>` aparece escapado.
 
 ### A3. Dashboard como landing
 
-- [ ] `GET /` abre último board visitado (cookie `last_board`) ou o primeiro; sem boards → estado vazio com CTA de criar
-- [ ] `GET /boards/{id}` página completa; com `HX-Request` retorna só o quadro
-- [ ] `404` amigável para board inexistente
+- [x] `GET /` abre último board visitado (cookie `last_board`) ou o primeiro; sem boards → estado vazio com CTA de criar
+- [x] `GET /boards/{id}` página completa; com `HX-Request` retorna só o quadro
+- [x] `404` amigável para board inexistente
 - **Asserts:** navegação direta por URL e via HTMX produzem o mesmo DOM do quadro (teste de integração compara); voltar/avançar do navegador funciona (E2E).
 
 ### A4. Cards — criar, editar, excluir
 
-- [ ] Form inline no rodapé da coluna (`hx-post="/columns/{id}/cards"`, `hx-swap="beforeend"`)
-- [ ] Editar título inline (`hx-get` → form, `hx-put` → card renderizado)
-- [ ] Modal/painel de detalhes: descrição (texto puro, quebras preservadas), prioridade 0–4, data de entrega
-- [ ] Excluir com `hx-confirm`
+- [x] Form inline no rodapé da coluna (`hx-post="/columns/{id}/cards"`, `hx-swap="beforeend"`)
+- [x] Editar título inline (`hx-get` → form, `hx-put` → card renderizado)
+- [x] Modal/painel de detalhes: descrição (texto puro, quebras preservadas), prioridade 0–4, data de entrega
+- [x] Excluir com `hx-confirm`
 - **Asserts:** E2E cobre criar/editar/excluir; repositório testado; foco do teclado volta ao card após editar.
 
 ### A5. Mover cards (drag-and-drop)
 
-- [ ] `internal/web/static/app.js`: HTML5 DnD entre e dentro de colunas, indicador visual de destino
-- [ ] `POST /cards/{id}/move` com `column_id` e `position`; reindexação em transação
-- [ ] Alternativa por teclado/menu "Mover para…" (acessibilidade e fallback de teste)
+- [x] `internal/web/static/app.js`: HTML5 DnD entre e dentro de colunas, indicador visual de destino
+- [x] `POST /cards/{id}/move` com `column_id` e `before_id` (âncora no card visível, correto com filtro ativo); reindexação em transação; resposta só com as colunas afetadas (OOB)
+- [x] Alternativa por teclado/menu "Mover para…" (acessibilidade e fallback de teste)
 - **Asserts:** teste de repositório: mover para cima/baixo/outra coluna mantém posições contíguas `0..n-1` sem duplicatas; E2E com `dragTo` persiste após reload.
 
 ### A6. Colunas — gerenciar
 
-- [ ] Renomear, adicionar, excluir (bloquear exclusão com cards ou mover cards para outra coluna) e reordenar colunas
-- [ ] Limite WIP opcional: contador `n/limite` fica vermelho quando excedido
+- [x] Renomear, adicionar, excluir (bloquear exclusão com cards ou mover cards para outra coluna) e reordenar colunas
+- [x] Limite WIP opcional: contador `n/limite` fica vermelho quando excedido
 - **Asserts:** testes de integração cobrem cada operação; E2E "renomear coluna persiste".
 
 ### A7. Projetos — editar, arquivar, excluir
 
-- [ ] Editar nome/descrição/cor
-- [ ] Arquivar (some da sidebar, recuperável em seção "Arquivados" colapsável dentro da própria sidebar — sem página extra)
-- [ ] Excluir definitivo com confirmação digitando o nome
+- [x] Editar nome/descrição/cor
+- [x] Arquivar (some da sidebar, recuperável em seção "Arquivados" colapsável dentro da própria sidebar — sem página extra)
+- [x] Excluir definitivo com confirmação digitando o nome
 - **Asserts:** E2E arquivar → restaurar; exclusão remove dados (verificado em teste de integração).
 
 ### Checkpoint ALPHA
 
-- [ ] Fluxo completo: criar projeto → criar cards → mover entre colunas → editar → arquivar — via E2E web **e** desktop
+- [x] Fluxo completo: criar projeto → criar cards → mover entre colunas → editar → arquivar — via E2E web **e** desktop
 - [ ] Release `v0.4.0-alpha.1` (prerelease) com builds
-- [ ] Uso real por 1 semana gerenciando os próprios projetos; bugs viram issues
-- [ ] Revisão humana antes de seguir para BETA
+- [ ] Uso real por 1 semana gerenciando os próprios projetos; bugs viram issues — pendente do usuário; substituído nesta fase por uma rodada de QA adversarial em worktree (26 achados, corrigidos com testes de regressão)
+- [x] Revisão humana antes de seguir para BETA — dispensada: o usuário pediu execução contínua até o fim do plano
 
 ---
 

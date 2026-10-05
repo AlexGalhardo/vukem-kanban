@@ -28,6 +28,27 @@ var (
 // ValidationError maps a form field to a human readable message.
 type ValidationError map[string]string
 
+// fieldNames are the pt-BR labels used in user-facing messages.
+var fieldNames = map[string]string{
+	"name": "Nome", "description": "Descrição", "color": "Cor", "title": "Título",
+	"priority": "Prioridade", "due_date": "Entrega", "wip_limit": "Limite WIP",
+	"column_id": "Coluna", "before_id": "Posição", "label_id": "Label", "file": "Arquivo",
+}
+
+// Message is the user-facing form of the error ("Título: obrigatório").
+func (v ValidationError) Message() string {
+	parts := make([]string, 0, len(v))
+	for k, msg := range v {
+		label := fieldNames[k]
+		if label == "" {
+			label = k
+		}
+		parts = append(parts, label+": "+msg)
+	}
+	sort.Strings(parts)
+	return strings.Join(parts, "; ")
+}
+
 func (v ValidationError) Error() string {
 	parts := make([]string, 0, len(v))
 	for k, msg := range v {
