@@ -23,7 +23,8 @@
 		"desktop:build": "bun build desktop/main.ts --target=node --format=cjs --external electron --outfile desktop/dist/main.js && bun build desktop/preload.ts --target=node --format=cjs --external electron --outfile desktop/dist/preload.js",
 		"desktop": "bun run build && bun run desktop:build && electron .",
 		"dist": "bun run build && bun run desktop:build && electron-builder --config desktop/electron-builder.yml",
-		"release": "bun scripts/release.ts"
+		"release": "bun scripts/release.ts",
+		"test:scripts": "bun test scripts/"
 	},
 	"devDependencies": {
 		"@playwright/test": "1.63.0",

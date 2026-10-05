@@ -65,17 +65,21 @@ Como:
 
 GitHub Actions fica desativado (billing). Nunca criar `.github/workflows/`.
 
-`bun run release <versão>` (`scripts/release.ts`):
+`bun run release <versão> [--dry-run] [--skip-desktop]` (`scripts/release.ts`; aceita `X.Y.Z` e `X.Y.Z-alpha.N|beta.N|rc.N`):
 
-1. Valida árvore git limpa e versão semver.
-2. Atualiza `VERSION` e move `[Unreleased]` para a nova versão no `CHANGELOG.md`.
-3. Roda `lint`, `test`, `smoke`.
-4. Builda Go com `CGO_ENABLED=0` para `windows/amd64`, `linux/amd64`, `darwin/arm64` + instalador Electron Windows.
-5. Gera `SHA256SUMS`.
-6. Commit `chore(release): vX.Y.Z`, tag anotada `vX.Y.Z`, `git push --follow-tags`.
-7. `gh release create vX.Y.Z --notes-file <seção do CHANGELOG> <artefatos>`; versões com `-alpha`/`-beta`/`-rc` usam `--prerelease`.
+1. Valida semver, árvore limpa, branch `main` e que a tag `vX.Y.Z` não existe localmente nem em `origin`. A versão deve ser maior que `VERSION`; igual só é aceita na primeira release (quando `v<VERSION>` ainda não tem tag).
+2. Atualiza `VERSION` e `package.json` (`"version"`) e move o conteúdo de `[Unreleased]` para `## [X.Y.Z] - AAAA-MM-DD` no `CHANGELOG.md` (falha se `[Unreleased]` estiver vazio), deixando `[Unreleased]` vazio e atualizando os links de comparação do rodapé.
+3. Gates (fail fast): `golangci-lint run ./...`, `go test -race ./...`, `bun run smoke`.
+4. Builda Go com `CGO_ENABLED=0` em `dist/go/` para `windows/amd64`, `linux/amd64`, `linux/arm64`, `darwin/amd64`, `darwin/arm64`. Sem `--skip-desktop` e com `desktop/electron-builder.yml` presente, roda `bun run dist` e coleta os instaladores `.exe` de topo de `dist/desktop/` que contenham a versão no nome (sem o yml, pula com aviso).
+5. Gera `dist/SHA256SUMS` (`<hash>  <arquivo>`) e `dist/RELEASE_NOTES.md` (corpo da seção do CHANGELOG + lista de downloads).
+6. Commit `chore(release): vX.Y.Z` (VERSION, package.json, CHANGELOG.md), tag anotada `vX.Y.Z`, `git push origin main --follow-tags`.
+7. `gh release create vX.Y.Z --title vX.Y.Z --notes-file dist/RELEASE_NOTES.md <artefatos> dist/SHA256SUMS`; versões com `-alpha`/`-beta`/`-rc` usam `--prerelease`.
 
-Use `--dry-run` para executar tudo menos push e publicação. Release é ação externa: confirme com o usuário antes de publicar.
+Se algo falhar antes do commit, `VERSION`, `package.json` e `CHANGELOG.md` são restaurados.
+
+`--dry-run` executa os passos 1–5 (fora de `main` só avisa), restaura os arquivos versionados ao final e apenas imprime os comandos de commit/tag/push/`gh release`. Release é ação externa: confirme com o usuário antes de publicar.
+
+Os helpers puros (semver, rotação do CHANGELOG, links) têm testes em `scripts/release.test.ts`: `bun run test:scripts`.
 
 ## Definition of Done
 

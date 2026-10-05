@@ -146,7 +146,7 @@ Objetivo: repositório, ferramentas, esqueleto executável em todas as camadas (
 ### E6. Esqueleto de testes (todas as camadas)
 
 - [ ] Unit/integração: `go test -race ./...`; helper `testutil.NewDB(t)` com SQLite em `t.TempDir()`
-- [ ] Smoke: `scripts/smoke.ts` builda, sobe `bin/kanban --addr 127.0.0.1:0`, lê porta do stdout, checa `/healthz` e `/`, mata processo, exit code ≠ 0 em falha
+- [x] Smoke: `scripts/smoke.ts` builda, sobe `bin/kanban --addr 127.0.0.1:0`, lê porta do stdout, checa `/healthz` e `/`, mata processo, exit code ≠ 0 em falha
 - [ ] E2E web: `playwright.config.ts` com `webServer` subindo o binário com DB temporário; 1 teste "dashboard carrega"
 - [ ] QA: `e2e/agent-browser/smoke.md` com roteiro reproduzível para `agent-browser` (abrir, snapshot, screenshot)
 - **Asserts:** `bun run test`, `bun run smoke`, `bun run e2e` verdes em máquina limpa (após `bun install` + `bunx playwright install chromium`).
@@ -162,9 +162,9 @@ Objetivo: repositório, ferramentas, esqueleto executável em todas as camadas (
 
 ### E8. Release local `0.0.1`
 
-- [ ] `scripts/release.ts <versão>`: valida árvore limpa e semver; atualiza `VERSION`; move `[Unreleased]` → `[x.y.z] - AAAA-MM-DD` no CHANGELOG; roda lint+test+smoke; builda Go para `windows/amd64`, `linux/amd64`, `darwin/arm64` (`CGO_ENABLED=0`) + instalador Electron Windows; gera `SHA256SUMS`; commit `chore(release): vX.Y.Z`; tag anotada `vX.Y.Z`; `git push --follow-tags`; `gh release create vX.Y.Z --notes-file <seção extraída> <artefatos>`
-- [ ] Sufixo `-rc.N`, `-beta.N`, `-alpha.N` → `gh release create --prerelease`
-- [ ] `--dry-run` que faz tudo menos push/publicação
+- [x] `scripts/release.ts <versão>`: valida árvore limpa e semver; atualiza `VERSION`; move `[Unreleased]` → `[x.y.z] - AAAA-MM-DD` no CHANGELOG; roda lint+test+smoke; builda Go para `windows/amd64`, `linux/amd64`, `darwin/arm64` (`CGO_ENABLED=0`) + instalador Electron Windows; gera `SHA256SUMS`; commit `chore(release): vX.Y.Z`; tag anotada `vX.Y.Z`; `git push --follow-tags`; `gh release create vX.Y.Z --notes-file <seção extraída> <artefatos>`
+- [x] Sufixo `-rc.N`, `-beta.N`, `-alpha.N` → `gh release create --prerelease`
+- [x] `--dry-run` que faz tudo menos push/publicação
 - [ ] Release `v0.0.1` publicada
 - **Asserts:** página da release mostra notas iguais à seção do CHANGELOG; artefatos baixáveis; `bin/kanban --version` imprime `0.0.1`; `.github/workflows/` não existe.
 
