@@ -2,6 +2,7 @@
 bin/
 dist/
 desktop/out/
+desktop/dist/
 
 # deps
 node_modules/
