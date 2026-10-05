@@ -33,9 +33,12 @@ Todos via `bun run <script>` (definidos em `package.json`).
 | `bun run test` | `go test -race ./...` |
 | `bun run smoke` | builda, sobe binário, checa `/healthz` e `/`, derruba |
 | `bun run e2e` | Playwright web contra servidor real com DB temporário |
-| `bun run e2e:desktop` | Playwright `_electron` |
-| `bun run desktop` | Electron em modo dev |
-| `bun run dist` | electron-builder |
+| `bun run desktop:build` | `bun build` de `desktop/main.ts` e `desktop/preload.ts` → `desktop/dist/*.js` (CJS) |
+| `bun run e2e:desktop` | build Go + desktop, Playwright `_electron` em `e2e/desktop/` (DB isolado via `KANBAN_DATA_DIR`) |
+| `bun run desktop` | build Go + desktop e abre o Electron em modo dev (`electron .`) |
+| `bun run dist` | build Go + desktop + electron-builder (`desktop/electron-builder.yml`) → `dist/desktop/Kanban-Setup-<versão>-x64.exe` (NSIS) e `Kanban-<versão>-x64-portable.exe` |
+
+Desktop: após `bun install`, se `node_modules/electron/dist` não existir rode `node node_modules/electron/install.js`. Para isolar dados num teste manual: `KANBAN_DATA_DIR=<pasta> bun run desktop`.
 | `bun run release <versão>` | release local completa (ver `docs/workflow.md`) |
 
 Validação focada durante desenvolvimento: `go test ./internal/store/ -run TestNome`, `golangci-lint run ./internal/web/...`.
