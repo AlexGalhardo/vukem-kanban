@@ -21,5 +21,10 @@ Kanban single-user estilo Trello/Linear para gerenciar projetos de software. Go 
 - Release local com `gh`; nunca criar `.github/workflows/`.
 - Paralelize tarefas independentes com git worktrees (ver `docs/workflow.md`).
 - Faça push para `origin/main` ao concluir cada grupo de microtarefas.
+- htmx 4.0.0: herança só com `:inherited`; erros de htmx respondem com `HX-Reswap: none` + header `X-Toast` (JSON ASCII); nunca coloque um elemento `hx-swap-oob` dentro do conteúdo principal da mesma resposta. Detalhes em `docs/architecture.md`.
+- Descrições de card são Markdown renderizado por `internal/markdown` (stdlib, escapa tudo); nunca use `template.HTML` com texto do usuário fora dele.
+- Atualize os checklists do `PLAN.md` antes de cada commit/push.
+- Rode uma worktree de QA adversarial em paralelo às fases (ver `docs/workflow.md`) e transforme bugs em testes de regressão.
+- Validação: `bun run lint`, `bun run test`, `bun run test:perf`, `bun run smoke`, `E2E_PORT=<porta livre> bun run e2e` e `bun run e2e:desktop`.
 - Ao mudar convenção, comando ou arquitetura: atualize `docs/`, este arquivo e `CLAUDE.md`.
 - Após mudanças de código: `graphify update .`.
