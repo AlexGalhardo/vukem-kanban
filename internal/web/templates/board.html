@@ -60,7 +60,7 @@
 		{{- range $i, $c := .View.Columns}}
 		{{template "column" (dict "Column" $c "Index" $i "Count" $n "Columns" $.View.Columns "Today" $.Today "Prefix" $.Prefix)}}
 		{{- end}}
-		<form class="w-72 shrink-0 pt-1" hx-sync="this:drop" hx-post="/boards/{{.View.Board.ID}}/columns" hx-target="#columns" hx-swap="outerHTML">
+		<form class="w-72 shrink-0 pt-1" hx-sync="this:queue all" hx-post="/boards/{{.View.Board.ID}}/columns" hx-target="#columns" hx-swap="outerHTML" data-reset-on-success>
 			<label class="sr-only" for="new-column">Nome da nova coluna</label>
 			<input id="new-column" name="name" required maxlength="40" placeholder="+ Nova coluna" class="input w-full border-dashed bg-transparent" autocomplete="off">
 		</form>
@@ -107,7 +107,7 @@
 	<ol id="cards-{{$c.ID}}" class="min-h-12 flex-1 space-y-1.5 overflow-y-auto rounded-lg p-1" data-dropzone data-column-id="{{$c.ID}}" aria-label="Cards de {{$c.Name}}">
 		{{- range $c.Cards}}{{template "card" (dict "Card" . "Today" $.Today "OOB" false "Prefix" $.Prefix)}}{{end}}
 	</ol>
-	<form class="p-1" hx-sync="this:drop" hx-post="/columns/{{$c.ID}}/cards" hx-target="#cards-{{$c.ID}}" hx-swap="beforeend" data-reset-on-success>
+	<form class="p-1" hx-sync="this:queue all" hx-post="/columns/{{$c.ID}}/cards" hx-target="#cards-{{$c.ID}}" hx-swap="beforeend" data-reset-on-success>
 		<label class="sr-only" for="new-card-{{$c.ID}}">Novo card em {{$c.Name}}</label>
 		<input id="new-card-{{$c.ID}}" name="title" required maxlength="200" placeholder="+ Novo card" autocomplete="off"
 			class="input w-full border-transparent bg-transparent hover:bg-surface-hover focus:bg-surface" data-new-card>

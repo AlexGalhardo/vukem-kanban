@@ -18,7 +18,7 @@ type LabelInput struct {
 }
 
 func (in *LabelInput) normalize() error {
-	in.Name = clampText(in.Name)
+	in.Name = singleLine(in.Name)
 	v := ValidationError{}
 	checkLen(v, "name", in.Name, 1, 30)
 	if !validColor(in.Color) {

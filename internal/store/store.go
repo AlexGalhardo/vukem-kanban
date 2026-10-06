@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode"
 
 	_ "modernc.org/sqlite" // registers the "sqlite" driver
 )
@@ -23,6 +24,8 @@ var migrationsFS embed.FS
 var (
 	ErrNotFound       = errors.New("not found")
 	ErrColumnNotEmpty = errors.New("column has cards")
+	// ErrConflict means the card changed since the caller loaded it.
+	ErrConflict = errors.New("card changed since it was loaded")
 )
 
 // ValidationError maps a form field to a human readable message.
@@ -190,7 +193,26 @@ func (s *Store) tx(ctx context.Context, fn func(*sql.Tx) error) error {
 	return tx.Commit()
 }
 
-func clampText(s string) string { return strings.TrimSpace(s) }
+// clampText cleans multi-line user text: invalid UTF-8 and invisible
+// characters (NUL, zero-width, bidi controls) are dropped, newlines and tabs
+// are kept, and the result is trimmed.
+func clampText(s string) string {
+	s = strings.ToValidUTF8(s, "")
+	s = strings.Map(func(r rune) rune {
+		if r == '\n' || r == '\t' {
+			return r
+		}
+		if unicode.IsControl(r) || unicode.Is(unicode.Cf, r) {
+			return -1
+		}
+		return r
+	}, s)
+	return strings.TrimSpace(s)
+}
+
+// singleLine is clampText for names and titles: any whitespace run,
+// including newlines, collapses to one space.
+func singleLine(s string) string { return strings.Join(strings.Fields(clampText(s)), " ") }
 
 func checkLen(v ValidationError, field, value string, minLen, maxLen int) {
 	n := len([]rune(value))

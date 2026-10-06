@@ -297,12 +297,21 @@ Objetivo: produtividade estilo Linear, robustez de dados e app desktop polido.
 - [x] Progresso do checklist no card (`1/3`, verde quando completo)
 - **Asserts:** `go test ./internal/markdown` (91% de cobertura, entradas hostis sem HTML ativo); E2E "markdown description" verde.
 
+### B9. QA round 2 (correções)
+
+- [x] Perda de texto ao digitar logo após Enter (campos de criação rápida)
+- [x] Edições com filtro ativo, filtro de label excluída, conflito entre abas (`revision` + 409)
+- [x] Foco após ações de teclado, confirmação de alterações não salvas, revert local do arrasto, Alt+setas para mover cards
+- [x] Título da página, projeto excluído em outra aba, contraste AA, `inert` na sidebar mobile, Esc no menu da coluna
+- [x] Texto invisível/UTF-8 inválido, chave do projeto por runa, hash dos assets no cache
+- **Asserts:** 20 specs `e2e/web/qa2-*.spec.ts` verdes; testes Go novos (revisão, sanitização, filtros); suíte E2E 54/54.
+
 ### Checkpoint BETA
 
-- [x] Cobertura Go ≥ 80% em `internal/store` e ≥ 70% em `internal/web` (`go test -cover`)
-- [ ] Suíte E2E web + desktop verde 3 execuções seguidas (sem flakiness)
-- [ ] Release `v0.9.0-beta.1` (prerelease)
-- [ ] Revisão humana antes do RC
+- [x] Cobertura Go ≥ 80% em `internal/store` e ≥ 70% em `internal/web` (`go test -cover`) — store ~84%, web ~82%, markdown ~92%
+- [x] Suíte E2E web + desktop verde 3 execuções seguidas (sem flakiness) — 34/34 ×3 antes do QA 2; 54/54 após as correções do QA 2
+- [x] Release `v0.9.0-beta.1` (prerelease)
+- [x] Revisão humana antes do RC — dispensada: o usuário pediu execução contínua; QA adversarial (2 rodadas) e revisão de segurança independente no lugar
 
 ---
 
@@ -368,7 +377,13 @@ Objetivo: congelar features, endurecer, documentar e lançar.
 | SQLite com escrita concorrente (`database is locked`) | Baixo | WAL + `busy_timeout` + `SetMaxOpenConns(1)` |
 | Build Electron para macOS/Linux a partir do Windows | Médio | Binários Go cross-compilam sempre; instaladores Electron não-Windows via WSL ou ficam para depois |
 
-## 9. Questões em aberto
+## 9. Estado ao fim da sessão de 2026-10-05
+
+- Fases ESTRUTURA, ALPHA e BETA concluídas e publicadas: `v0.0.1`, `v0.4.0-alpha.1` e `v0.9.0-beta.1`.
+- Próxima sessão: fase 1.0.0 RC — R1 (freeze), R5 (`graphify update .`), R6 (`v1.0.0-rc.1` → uso real → `v1.0.0`).
+- Pendências do usuário: uso real por 1 semana (ALPHA), decidir alvos Linux/macOS do Electron (B6).
+
+## 10. Questões em aberto
 
 - Instaladores Electron de Linux/macOS são necessários já na BETA ou só binários Go web bastam?
 - Repositório GitHub público ou privado?

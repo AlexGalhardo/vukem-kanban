@@ -47,23 +47,132 @@
 		if (!(e.detail.ctx && e.detail.ctx.response)) toast("Sem conexão com o servidor.", "error");
 	});
 
-	// ---------- Dialogs loaded into #modal ----------
-	function openModalDialog() {
-		const dialog = $("#modal dialog");
-		if (dialog && !dialog.open) {
-			dialog.addEventListener("close", () => {
-				if (dialog.isConnected) $("#modal").replaceChildren();
-			}, { once: true });
-			dialog.showModal();
-			const focus = $("[autofocus]", dialog);
-			if (focus) focus.focus();
+	// ---------- Focus management ----------
+	// htmx swaps often replace the focused element (a label chip, a dialog,
+	// a card). A selector for it is remembered before each request and focus
+	// is restored after the swap instead of falling back to <body>.
+	function selectorFor(el) {
+		if (!el || el === document.body || el === document.documentElement) return null;
+		if (el.id) return `#${CSS.escape(el.id)}`;
+		for (const attr of ["hx-post", "hx-put", "hx-delete", "hx-get"]) {
+			const v = el.getAttribute(attr);
+			if (v) return `[${attr}="${CSS.escape(v)}"]`;
 		}
+		const card = el.closest && el.closest("li.card");
+		return card ? `#${card.id} .card-open` : null;
+	}
+	const visible = (el) => el && el.isConnected && el.getClientRects().length > 0;
+	// When the focused node is removed, focus falls back to <body> or, inside
+	// a modal, to the <dialog> itself.
+	const focusLost = () => {
+		const el = document.activeElement;
+		return !el || el === document.body || el.tagName === "DIALOG";
+	};
+
+	// focusSelector lists where focus should go back: the element itself and,
+	// inside a card, the card's open button (for swaps that replace it).
+	let focusSelector = null;
+	document.addEventListener("htmx:before:request", () => {
+		const el = document.activeElement;
+		const card = el && el.closest && el.closest("li.card");
+		focusSelector = [selectorFor(el), card ? `#${card.id} .card-open` : null].filter(Boolean);
+	});
+	const findFocus = (sels, root = document) => {
+		for (const s of sels || []) {
+			const el = $(s, root);
+			if (visible(el)) return el;
+		}
+		return null;
+	};
+
+	// ---------- Dialogs loaded into #modal ----------
+	let openDialog = null;
+	let opener = null; // where focus goes back when the dialog goes away
+
+	function focusOpener() {
+		const cardId = openDialog && openDialog.dataset.cardId;
+		const target = (cardId && $(`#card-${cardId} .card-open`)) || findFocus(opener) || $("#main");
+		if (visible(target) || target === $("#main")) target.focus();
 	}
 
-	document.body.addEventListener("htmx:after:settle", () => {
-		openModalDialog();
-		restoreCardFocus();
+	// formSnapshot serializes a guarded form, ignoring fields that act
+	// immediately (the status select moves the card on change).
+	function formSnapshot(form) {
+		const data = new URLSearchParams(new FormData(form));
+		data.delete("column_id");
+		return data.toString();
+	}
+	function isDirty(dialog) {
+		const form = $("form[data-dirty-guard]", dialog);
+		return !!form && form.dataset.snapshot !== undefined && formSnapshot(form) !== form.dataset.snapshot;
+	}
+
+	function openModalDialog(previous) {
+		const dialog = $("#modal dialog");
+		if (!dialog || dialog.open) return null;
+		if (!previous) opener = focusSelector;
+		dialog.addEventListener("close", () => {
+			if (dialog.isConnected) $("#modal").replaceChildren();
+			if (openDialog === dialog) {
+				focusOpener();
+				openDialog = null;
+			}
+		}, { once: true });
+		// Esc and backdrop clicks ask before discarding unsaved edits.
+		dialog.addEventListener("cancel", (e) => {
+			if (isDirty(dialog) && !window.confirm("Descartar as alterações não salvas?")) e.preventDefault();
+		});
+		$$("form[method=dialog] button", dialog).forEach((btn) => btn.addEventListener("click", (e) => {
+			if (isDirty(dialog) && !window.confirm("Descartar as alterações não salvas?")) e.preventDefault();
+		}));
+		if (previous && previous.dataset.cardId) dialog.dataset.cardId ||= previous.dataset.cardId;
+		openDialog = dialog;
+		dialog.showModal();
+		$$("form[data-dirty-guard]", dialog).forEach((f) => { f.dataset.snapshot = formSnapshot(f); });
+		const focus = $("[autofocus]", dialog);
+		if (focus) focus.focus();
+		return dialog;
+	}
+
+	function afterSwap(sel = focusSelector) {
+		const previous = openDialog && !openDialog.isConnected ? openDialog : null;
+		const opened = openModalDialog(previous);
+		if (opened && previous) {
+			// The dialog was re-rendered (validation, labels): keep the place.
+			const el = findFocus(sel, opened);
+			if (el) el.focus();
+		} else if (!opened && previous) {
+			// The dialog was removed by the response (saved, deleted).
+			openDialog = previous;
+			focusOpener();
+			openDialog = null;
+		} else if (focusLost()) {
+			const el = findFocus(sel);
+			if (el) el.focus();
+		}
 		closeMenus();
+	}
+
+	// htmx:after:settle is dispatched on the swapped element; when the swap
+	// replaced the element that made the request (outerHTML), that node is
+	// detached and the event never reaches document. A short timer started on
+	// htmx:after:request (still attached) runs the same work in that case.
+	let settled = false;
+	document.body.addEventListener("htmx:after:settle", () => {
+		settled = true;
+		afterSwap();
+	});
+	// The timer always runs once more (a response can settle several swaps,
+	// main and out-of-band, in any order) and then forgets the selector.
+	// Each timer only handles its own request's selector: a newer request
+	// (e.g. a quick Enter right after a dialog opened) must not be cleared.
+	document.body.addEventListener("htmx:after:request", () => {
+		settled = false;
+		const mine = focusSelector;
+		setTimeout(() => {
+			if (focusLost() || !settled) afterSwap(mine);
+			if (focusSelector === mine) focusSelector = null;
+		}, 60);
 	});
 
 	// Ctrl/Cmd+Enter submits the form of a focused field (Linear behaviour).
@@ -82,14 +191,48 @@
 	});
 
 	// ---------- Forms ----------
+	// Quick-add inputs (new card, new column): after a successful create the
+	// input is cleared only if it still holds what was sent. Text typed while
+	// the request was in flight is kept, also across the #columns swap that
+	// replaces the new-column input.
+	const sent = new WeakMap();
+	let carryOver = null;
+	// Values are already encoded when htmx:before:request fires, so clearing
+	// here is safe: whatever the user types next is a new title.
+	document.body.addEventListener("htmx:before:request", (e) => {
+		const form = e.target;
+		if (!form.matches || !form.matches("form[data-reset-on-success]")) return;
+		const input = $("input", form);
+		if (!input) return;
+		sent.set(form, input.value);
+		input.value = "";
+	});
+	const restoreSent = (form) => {
+		const input = $("input", form);
+		if (input && input.value === "" && sent.has(form)) input.value = sent.get(form);
+	};
 	document.body.addEventListener("htmx:after:request", (e) => {
 		const form = e.target;
+		if (!form.matches || !form.matches("form[data-reset-on-success]")) return;
+		const input = $("input", form);
 		const res = e.detail.ctx && e.detail.ctx.response;
-		if (res && res.status < 400 && form.matches && form.matches("form[data-reset-on-success]")) {
-			form.reset();
-			const input = $("input", form);
-			if (input) input.focus();
+		if (!res || res.status >= 400) {
+			restoreSent(form);
+			return;
 		}
+		if (input) carryOver = { id: input.id, value: input.value, focused: document.activeElement === input };
+	});
+	document.body.addEventListener("htmx:error", (e) => {
+		if (e.target.matches && e.target.matches("form[data-reset-on-success]")) restoreSent(e.target);
+	});
+	document.body.addEventListener("htmx:after:settle", () => {
+		if (!carryOver) return;
+		const input = carryOver.id && document.getElementById(carryOver.id);
+		if (input) {
+			if (input.value !== carryOver.value) input.value = carryOver.value;
+			if (carryOver.focused || focusLost()) input.focus();
+		}
+		carryOver = null;
 	});
 
 	// Inline title editor: Enter saves, Esc cancels.
@@ -106,24 +249,20 @@
 		}
 	});
 
-	// Keep keyboard focus on a card after its title editor is swapped out.
-	let focusCardId = null;
-	document.body.addEventListener("htmx:before:request", (e) => {
-		const card = e.target.closest && e.target.closest("li.card");
-		if (card && card.contains(document.activeElement)) focusCardId = card.id.replace("card-", "");
-	});
-	function restoreCardFocus() {
-		if (!focusCardId) return;
-		const btn = $(`#card-${focusCardId} .card-open`);
-		focusCardId = null;
-		if (btn) btn.focus();
-	}
-
 	function closeMenus(except) {
 		$$("details.col-menu[open]").forEach((d) => {
 			if (d !== except) d.open = false;
 		});
 	}
+	// Esc closes an open column menu and returns focus to its toggle.
+	document.addEventListener("keydown", (e) => {
+		if (e.key !== "Escape") return;
+		const menu = $("details.col-menu[open]");
+		if (!menu) return;
+		e.preventDefault();
+		menu.open = false;
+		$("summary", menu).focus();
+	});
 	document.addEventListener("click", (e) => {
 		const menu = e.target.closest("details.col-menu");
 		closeMenus(menu);
@@ -149,7 +288,22 @@
 		nav.classList.toggle("hidden", !show);
 		nav.classList.toggle("flex", show);
 		const backdrop = $("#sidebar-backdrop");
-		if (backdrop) backdrop.classList.toggle("hidden", !show);
+		if (!backdrop) return;
+		backdrop.classList.toggle("hidden", !show);
+		// While the overlay is open the page behind it is inert, so Tab stays
+		// in the sidebar; closing it returns focus to the toggle. On wide
+		// screens the backdrop is display:none and nothing becomes inert.
+		const overlay = show && getComputedStyle(backdrop).display !== "none";
+		const main = $("#main");
+		if (main) main.inert = overlay;
+		if (show && !overlay) return;
+		if (show) {
+			const first = $("a, button", nav);
+			if (first) first.focus();
+		} else {
+			const toggle = $("[data-action=sidebar]");
+			if (visible(toggle)) toggle.focus();
+		}
 	}
 	const sidebarOverlayOpen = () => {
 		const backdrop = $("#sidebar-backdrop");
@@ -218,7 +372,7 @@
 	// moveCard asks the server to move a card; the response replaces only the
 	// affected columns out of band. On any failure the board is re-fetched so
 	// an optimistic DOM move never lies about what was saved.
-	function moveCard(id, columnId, beforeId) {
+	function moveCard(id, columnId, beforeId, revert) {
 		const action = `/cards/${id}/move`;
 		let status = 0;
 		// htmx.ajax resolves without the response, so read it from the event.
@@ -233,10 +387,46 @@
 		}).catch(() => {}).finally(() => {
 			document.removeEventListener("htmx:after:request", record);
 			if (!status || status >= 400) {
+				// Undo the optimistic DOM move first: the re-fetch below also
+				// fails when the server is unreachable.
+				if (revert) revert();
 				htmx.ajax("GET", location.href, { target: "#columns", select: "#columns", swap: "outerHTML" }).catch(() => {});
 			}
 		});
 	}
+
+	// moveOptimistic moves card in the DOM now and on the server; on failure
+	// the card goes back to where it was.
+	function moveOptimistic(card, zone, before) {
+		const from = card.parentElement;
+		const next = card.nextElementSibling;
+		zone.insertBefore(card, before);
+		moveCard(card.dataset.cardId, zone.dataset.columnId, before ? before.dataset.cardId : 0, () => {
+			if (from && from.isConnected) from.insertBefore(card, next && next.isConnected ? next : null);
+		});
+	}
+
+	// Alt+Arrow moves the focused card: up/down inside its column, left/right
+	// to the end of the neighbouring column (keyboard alternative to DnD).
+	document.addEventListener("keydown", (e) => {
+		if (!e.altKey || !e.key.startsWith("Arrow")) return;
+		const card = document.activeElement && document.activeElement.closest && document.activeElement.closest("li.card");
+		if (!card || !card.parentElement.matches("[data-dropzone]")) return;
+		e.preventDefault();
+		const zone = card.parentElement;
+		const siblings = $$("li.card", zone);
+		const i = siblings.indexOf(card);
+		if (e.key === "ArrowUp" && i > 0) {
+			moveOptimistic(card, zone, siblings[i - 1]);
+		} else if (e.key === "ArrowDown" && i < siblings.length - 1) {
+			moveOptimistic(card, zone, siblings[i + 2] || null);
+		} else if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+			const zones = $$("[data-dropzone]");
+			const target = zones[zones.indexOf(zone) + (e.key === "ArrowLeft" ? -1 : 1)];
+			if (target) moveOptimistic(card, target, null);
+		}
+		$(".card-open", card).focus();
+	});
 
 	document.addEventListener("dragover", (e) => {
 		const zone = e.target.closest && e.target.closest("[data-dropzone]");
@@ -253,12 +443,10 @@
 		if (!zone || !dragged) return;
 		e.preventDefault();
 		const before = dropBefore(zone, e.clientY);
-		const id = dragged.dataset.cardId;
+		marker.remove();
 		// Optimistic move so the UI responds instantly; the server response
 		// re-renders the two columns (counts, WIP limits) right after.
-		zone.insertBefore(dragged, before);
-		marker.remove();
-		moveCard(id, zone.dataset.columnId, before ? before.dataset.cardId : 0);
+		moveOptimistic(dragged, zone, before);
 	});
 
 	// ---------- Command palette ----------
@@ -367,7 +555,9 @@
 		if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
 			e.preventDefault();
 			const dlg = palette();
-			if (dlg && dlg.open) dlg.close(); else openPalette();
+			if (dlg && dlg.open) dlg.close();
+			// Never stack the palette on top of another open dialog.
+			else if (!$("dialog[open]")) openPalette();
 			return;
 		}
 		if (e.ctrlKey || e.metaKey || e.altKey || typing(e.target) || $("dialog[open]")) return;
@@ -392,10 +582,12 @@
 	});
 
 	// ---------- Markdown editor (card description) ----------
-	function setMdMode(editor, mode) {
+	// setMdMode switches the editor pane; it moves focus only when the user
+	// asked for it (tab click, double-click), never on background re-syncs.
+	function setMdMode(editor, mode, focus = false) {
 		editor.dataset.mode = mode;
 		$$("[data-md-tab]", editor).forEach((t) => t.setAttribute("aria-selected", String(t.dataset.mdTab === mode)));
-		if (mode === "write") {
+		if (focus && mode === "write") {
 			const ta = $("textarea[data-markdown]", editor);
 			if (ta) ta.focus();
 		}
@@ -403,12 +595,12 @@
 
 	document.addEventListener("click", (e) => {
 		const tab = e.target.closest("[data-md-tab]");
-		if (tab) setMdMode(tab.closest("[data-md-editor]"), tab.dataset.mdTab);
+		if (tab) setMdMode(tab.closest("[data-md-editor]"), tab.dataset.mdTab, true);
 	});
 	document.addEventListener("dblclick", (e) => {
 		// Links inside the preview keep working; double-click elsewhere edits.
 		const preview = e.target.closest(".md-preview");
-		if (preview && !e.target.closest("a")) setMdMode(preview.closest("[data-md-editor]"), "write");
+		if (preview && !e.target.closest("a")) setMdMode(preview.closest("[data-md-editor]"), "write", true);
 	});
 	document.body.addEventListener("htmx:after:settle", () => {
 		$$("[data-md-editor]").forEach((ed) => setMdMode(ed, ed.dataset.mode || "write"));

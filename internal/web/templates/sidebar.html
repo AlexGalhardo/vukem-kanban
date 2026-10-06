@@ -3,7 +3,7 @@
 	class="sidebar fixed inset-y-0 left-0 z-40 hidden w-60 shrink-0 flex-col border-r border-line bg-panel md:static md:flex">
 	<div class="flex h-12 items-center justify-between gap-2 px-3">
 		<a href="/" class="flex min-w-0 items-center gap-2 rounded-md px-1 py-1 text-[13px] font-semibold hover:bg-surface-hover">
-			<img src="/static/favicon.svg?v={{.Version}}" alt="" class="size-5 rounded">
+			<img src="/static/favicon.svg?v={{assetVersion}}" alt="" class="size-5 rounded">
 			<span class="truncate">Kanban</span>
 		</a>
 		<button type="button" class="btn-ghost" hx-get="/boards/new" hx-target="#modal" data-action="new-board"

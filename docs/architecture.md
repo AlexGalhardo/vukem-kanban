@@ -49,6 +49,11 @@ ADRs completos irão para `docs/adr/` na fase 1.0.0 RC (ver `PLAN.md` R5).
 - `HX-Trigger` sempre em JSON escapado para ASCII (`\uXXXX`): o navegador decodifica headers como Latin-1.
 - Mutações re-renderizam com o filtro ativo lido de `HX-Current-URL`.
 - Fragmentos fora do alvo usam `hx-swap-oob`; um elemento OOB nunca pode estar dentro do conteúdo principal da mesma resposta (o htmx 4 o extrai antes do swap). Flags separadas: `OOB` (sidebar/card) e `ColumnsOOB` (`#columns` + filtro de label).
+- Toasts vão no header `X-Toast` (lido em `htmx:after:request`), não em `HX-Trigger`: o evento do `HX-Trigger` é disparado no elemento de origem após o swap e se perde quando o swap remove esse elemento.
+- Respostas parciais de navegação incluem `<title>` (template `title-tag`) para o htmx atualizar o `document.title`.
+- Edição do card usa trava otimista: o formulário envia `revision`; versão desatualizada → `409` (`store.ErrConflict`).
+- Assets estáticos usam `?v=<hash do conteúdo>` com `Cache-Control: immutable`.
+- Foco: o `app.js` lembra o elemento focado antes de cada request e o restaura após o swap (inclusive quando o `htmx:after:settle` cai num nó já removido).
 - Eventos JS usam os nomes do htmx 4 (`htmx:after:settle`, `htmx:after:request`, `htmx:response:error`, `htmx:error`); o detalhe vem em `event.detail.ctx`.
 - Navegação que muda de board usa `HX-Push-Url`.
 - Escaping sempre via `html/template`; nunca `template.HTML` com entrada do usuário.

@@ -3,7 +3,6 @@ package store
 import (
 	"context"
 	"database/sql"
-	"strings"
 	"time"
 )
 
@@ -24,6 +23,7 @@ type Card struct {
 	Labels      []Label
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
+	Revision    int64 // bumped on every update; used to detect stale edits
 }
 
 // Overdue reports whether the due date is before today (YYYY-MM-DD).
@@ -48,7 +48,7 @@ type CardInput struct {
 
 func (in *CardInput) normalize() error {
 	// Titles are single-line; pasted or Shift+Enter newlines become spaces.
-	in.Title = strings.Join(strings.Fields(in.Title), " ")
+	in.Title = singleLine(in.Title)
 	in.Description = clampText(in.Description)
 	in.DueDate = clampText(in.DueDate)
 	v := ValidationError{}
@@ -68,12 +68,12 @@ func (in *CardInput) normalize() error {
 	return nil
 }
 
-const cardCols = `c.id, col.board_id, c.column_id, c.title, c.description, c.priority, c.due_date, c.position, c.created_at, c.updated_at`
+const cardCols = `c.id, col.board_id, c.column_id, c.title, c.description, c.priority, c.due_date, c.position, c.created_at, c.updated_at, c.revision`
 
 func scanCard(row interface{ Scan(...any) error }) (Card, error) {
 	var c Card
 	var created, updated int64
-	err := row.Scan(&c.ID, &c.BoardID, &c.ColumnID, &c.Title, &c.Description, &c.Priority, &c.DueDate, &c.Position, &created, &updated)
+	err := row.Scan(&c.ID, &c.BoardID, &c.ColumnID, &c.Title, &c.Description, &c.Priority, &c.DueDate, &c.Position, &created, &updated, &c.Revision)
 	c.CreatedAt, c.UpdatedAt = time.Unix(created, 0), time.Unix(updated, 0)
 	return c, err
 }
@@ -135,13 +135,30 @@ func (s *Store) CreateCard(ctx context.Context, columnID int64, title string) (C
 }
 
 func (s *Store) UpdateCard(ctx context.Context, id int64, in CardInput) (Card, error) {
+	return s.UpdateCardAt(ctx, id, in, -1)
+}
+
+// UpdateCardAt updates a card only if its revision is still revision
+// (optimistic locking); revision -1 skips the check. A mismatch returns
+// ErrConflict so a stale browser tab cannot overwrite newer edits.
+func (s *Store) UpdateCardAt(ctx context.Context, id int64, in CardInput, revision int64) (Card, error) {
 	if err := in.normalize(); err != nil {
 		return Card{}, err
 	}
-	if err := affectedOrNotFound(s.db.ExecContext(ctx,
-		`UPDATE cards SET title = ?, description = ?, priority = ?, due_date = ?, updated_at = ? WHERE id = ?`,
-		in.Title, in.Description, in.Priority, in.DueDate, s.now().Unix(), id)); err != nil {
+	res, err := s.db.ExecContext(ctx,
+		`UPDATE cards SET title = ?, description = ?, priority = ?, due_date = ?, updated_at = ?, revision = revision + 1
+		 WHERE id = ? AND (? < 0 OR revision = ?)`,
+		in.Title, in.Description, in.Priority, in.DueDate, s.now().Unix(), id, revision, revision)
+	if err != nil {
 		return Card{}, err
+	}
+	if n, err := res.RowsAffected(); err != nil {
+		return Card{}, err
+	} else if n == 0 {
+		if _, err := s.GetCard(ctx, id); err != nil {
+			return Card{}, err
+		}
+		return Card{}, ErrConflict
 	}
 	return s.GetCard(ctx, id)
 }

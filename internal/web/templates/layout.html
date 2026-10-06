@@ -6,11 +6,11 @@
 	<meta name="description" content="Kanban estilo Linear para gerenciar o desenvolvimento de projetos de software.">
 	<meta name="htmx-config" content='{"includeIndicatorCSS":false,"noSwap":[204,304,"5xx"],"history":"reload"}'>
 	<title>{{if .View}}{{.View.Board.Name}} · {{end}}Kanban</title>
-	<link rel="icon" href="/static/favicon.svg?v={{.Version}}" type="image/svg+xml">
-	<link rel="stylesheet" href="/static/app.css?v={{.Version}}">
-	<script src="/static/theme.js?v={{.Version}}"></script>
-	<script src="/static/htmx.min.js?v={{.Version}}" defer></script>
-	<script src="/static/app.js?v={{.Version}}" defer></script>
+	<link rel="icon" href="/static/favicon.svg?v={{assetVersion}}" type="image/svg+xml">
+	<link rel="stylesheet" href="/static/app.css?v={{assetVersion}}">
+	<script src="/static/theme.js?v={{assetVersion}}"></script>
+	<script src="/static/htmx.min.js?v={{assetVersion}}" defer></script>
+	<script src="/static/app.js?v={{assetVersion}}" defer></script>
 </head>
 <body class="h-full overflow-hidden" hx-indicator:inherited="#progress">
 	<div id="progress" class="htmx-indicator pointer-events-none fixed inset-x-0 top-0 z-50 h-0.5" aria-hidden="true"></div>
@@ -50,6 +50,8 @@
 {{- end}}
 {{end}}
 
+{{define "title-tag"}}<title>{{if .View}}{{.View.Board.Name}} · {{end}}Kanban</title>{{end}}
+
 {{define "modal-clear"}}<div id="modal" hx-swap-oob="innerHTML"></div>{{end}}
 
 {{define "dialog-header"}}
@@ -68,6 +70,8 @@
 		<dt>Novo projeto</dt><dd><kbd>N</kbd></dd>
 		<dt>Buscar cards</dt><dd><kbd>/</kbd></dd>
 		<dt>Projeto anterior / próximo</dt><dd><kbd>G</kbd> <kbd>K</kbd> / <kbd>G</kbd> <kbd>J</kbd></dd>
+		<dt>Mover card focado (cima/baixo)</dt><dd><kbd>Alt</kbd> <kbd>↑</kbd> <kbd>↓</kbd></dd>
+		<dt>Mover card focado de coluna</dt><dd><kbd>Alt</kbd> <kbd>←</kbd> <kbd>→</kbd></dd>
 		<dt>Alternar tema</dt><dd><kbd>T</kbd></dd>
 		<dt>Fechar / cancelar</dt><dd><kbd>Esc</kbd></dd>
 		<dt>Esta lista</dt><dd><kbd>?</kbd></dd>

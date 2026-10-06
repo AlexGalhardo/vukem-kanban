@@ -68,14 +68,15 @@
 
 {{define "card-dialog"}}
 {{- $c := .Card}}
-<dialog closedby="any" class="dialog w-full max-w-2xl p-0" aria-labelledby="card-dialog-title" data-testid="card-dialog">
+<dialog closedby="any" class="dialog w-full max-w-2xl p-0" aria-label="{{.Prefix}}-{{$c.ID}}: {{$c.Title}}" data-testid="card-dialog" data-card-id="{{$c.ID}}">
 	<div class="flex items-center gap-2 border-b border-line px-5 py-3 text-[12px] text-muted">
 		<span class="grid size-4 place-items-center rounded {{chip .View.Board.Color}} text-[9px] font-bold" aria-hidden="true">{{initial .View.Board.Name}}</span>
 		<span class="min-w-0 truncate">{{.View.Board.Name}}</span><span class="text-faint">›</span>
 		<span id="card-dialog-title" class="shrink-0 whitespace-nowrap font-mono text-fg">{{.Prefix}}-{{$c.ID}}</span>
 		<form method="dialog" class="ml-auto"><button class="btn-ghost" aria-label="Fechar">{{template "icon-close"}}</button></form>
 	</div>
-	<form class="grid gap-0 md:grid-cols-[1fr_13rem]" hx-put="/cards/{{$c.ID}}" hx-target="#modal">
+	<form class="grid gap-0 md:grid-cols-[1fr_13rem]" hx-put="/cards/{{$c.ID}}" hx-target="#modal" data-dirty-guard>
+		<input type="hidden" name="revision" value="{{$c.Revision}}">
 		<div class="space-y-3 p-5">
 			<div>
 				<label class="sr-only" for="card-title">Título</label>
@@ -92,7 +93,7 @@
 					<span class="ml-auto text-[11px] text-faint">Markdown · <kbd>Ctrl</kbd> <kbd>B</kbd> <kbd>I</kbd></span>
 				</div>
 				<label class="sr-only" for="card-description">Descrição (Markdown)</label>
-				<textarea id="card-description" name="description" rows="10" maxlength="10000" data-markdown
+				<textarea id="card-description" name="description" rows="10" maxlength="10000" data-markdown {{if not $desc}}autofocus{{end}}
 					placeholder="Adicione uma descrição… Markdown: **negrito**, `código`, - [ ] tarefa, [link](https://…)"
 					class="md-write w-full resize-y rounded-md bg-transparent font-mono text-[12.5px] leading-relaxed text-fg placeholder:text-faint focus:outline-none">{{$desc}}</textarea>
 				{{template "markdown-preview" (dict "Src" $desc)}}

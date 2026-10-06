@@ -653,3 +653,46 @@ func TestOpensDatabaseFromV040Alpha1(t *testing.T) {
 		t.Fatalf("import legacy export: %v", err)
 	}
 }
+
+func TestUpdateCardDetectsStaleRevision(t *testing.T) {
+	ctx := context.Background()
+	s := newStore(t)
+	v := mustBoard(t, s, "b")
+	c := mustCard(t, s, v.Columns[0].ID, "card")
+	loaded := c.Revision
+
+	updated, err := s.UpdateCardAt(ctx, c.ID, CardInput{Title: "card", Description: "important text"}, loaded)
+	if err != nil || updated.Revision != loaded+1 {
+		t.Fatalf("first save = %+v, %v", updated, err)
+	}
+	// A second tab still holding the old revision must not overwrite it.
+	if _, err := s.UpdateCardAt(ctx, c.ID, CardInput{Title: "stale"}, loaded); !errors.Is(err, ErrConflict) {
+		t.Fatalf("stale save = %v, want ErrConflict", err)
+	}
+	if got, _ := s.GetCard(ctx, c.ID); got.Description != "important text" || got.Title != "card" {
+		t.Fatalf("stale save changed data: %+v", got)
+	}
+	if _, err := s.UpdateCardAt(ctx, 9999, CardInput{Title: "x"}, 0); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("missing card = %v", err)
+	}
+}
+
+func TestInvisibleAndInvalidTextIsRejected(t *testing.T) {
+	ctx := context.Background()
+	s := newStore(t)
+	v := mustBoard(t, s, "b")
+	for _, title := range []string{"\x00", string(rune(0x200b)) + string(rune(0x200b)), string(rune(0x202e)), " \t\n"} {
+		var verr ValidationError
+		if _, err := s.CreateCard(ctx, v.Columns[0].ID, title); !errors.As(err, &verr) {
+			t.Errorf("title %q accepted: %v", title, err)
+		}
+	}
+	c, err := s.CreateCard(ctx, v.Columns[0].ID, "ok"+string([]byte{0xff})+string(rune(0x200b))+"título")
+	if err != nil || c.Title != "oktítulo" {
+		t.Fatalf("cleaned title = %q, %v", c.Title, err)
+	}
+	b, _ := s.CreateBoard(ctx, BoardInput{Name: "a\nb\x00"})
+	if b.Name != "a b" {
+		t.Fatalf("board name = %q", b.Name)
+	}
+}

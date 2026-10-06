@@ -140,19 +140,19 @@ func initial(name string) string {
 
 // prefix derives a 3-letter issue key from the board name ("Trello Clone" -> "TRE").
 func prefix(name string) string {
-	var b strings.Builder
+	var key []rune
 	for _, r := range strings.ToUpper(name) {
 		if unicode.IsLetter(r) || unicode.IsDigit(r) {
-			b.WriteRune(r)
-			if b.Len() >= 3 {
+			key = append(key, r)
+			if len(key) == 3 {
 				break
 			}
 		}
 	}
-	if b.Len() == 0 {
+	if len(key) == 0 {
 		return "KAN"
 	}
-	return b.String()
+	return string(key)
 }
 
 // statusKind picks the Linear-style status icon for column i of n: first is
@@ -255,6 +255,8 @@ func (s *Server) fail(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, store.ErrNotFound):
 		status, msg = http.StatusNotFound, "Não encontrado."
+	case errors.Is(err, store.ErrConflict):
+		status, msg = http.StatusConflict, "Este card foi alterado em outra aba. Feche e reabra o card para ver a versão atual."
 	case errors.Is(err, store.ErrColumnNotEmpty):
 		status, msg = http.StatusConflict, "A coluna tem cards. Escolha para onde movê-los."
 	case errors.As(err, &verr):

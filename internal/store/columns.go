@@ -24,7 +24,7 @@ type ColumnInput struct {
 }
 
 func (in *ColumnInput) normalize() error {
-	in.Name = clampText(in.Name)
+	in.Name = singleLine(in.Name)
 	v := ValidationError{}
 	checkLen(v, "name", in.Name, 1, 40)
 	if in.WIPLimit < 0 || in.WIPLimit > 999 {

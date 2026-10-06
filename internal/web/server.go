@@ -2,7 +2,9 @@
 package web
 
 import (
+	"crypto/sha256"
 	"embed"
+	"encoding/hex"
 	"html/template"
 	"io/fs"
 	"log/slog"
@@ -39,7 +41,15 @@ type Server struct {
 // New builds the HTTP handler. Templates are parsed once here so a broken
 // template fails at startup, not on the first request.
 func New(st *store.Store, log *slog.Logger, version string) (*Server, error) {
-	tmpl, err := template.New("").Funcs(funcs).ParseFS(templatesFS, "templates/*.html")
+	assets, err := assetHash()
+	if err != nil {
+		return nil, err
+	}
+	fm := template.FuncMap{"assetVersion": func() string { return assets }}
+	for k, v := range funcs {
+		fm[k] = v
+	}
+	tmpl, err := template.New("").Funcs(fm).ParseFS(templatesFS, "templates/*.html")
 	if err != nil {
 		return nil, err
 	}
@@ -97,6 +107,26 @@ func (s *Server) routes() *http.ServeMux {
 	mux.HandleFunc("POST /import", s.importData)
 	mux.HandleFunc("POST /backup", s.backup)
 	return mux
+}
+
+// assetHash fingerprints the embedded static files. Asset URLs carry it as
+// ?v=, so any change to CSS/JS busts the immutable browser cache even when
+// the app version string did not change (dev builds, rebuilt releases).
+func assetHash() (string, error) {
+	h := sha256.New()
+	err := fs.WalkDir(staticFS, "static", func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		b, err := staticFS.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		_, _ = h.Write([]byte(path))
+		_, _ = h.Write(b)
+		return nil
+	})
+	return hex.EncodeToString(h.Sum(nil))[:12], err
 }
 
 func cacheStatic(h http.Handler) http.Handler {

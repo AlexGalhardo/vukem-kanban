@@ -206,9 +206,16 @@ func TestShowBoardFullAndPartial(t *testing.T) {
 	expect(t, a.do("GET", "/boards/abc", nil), 400, "<!doctype html>", "Projeto não encontrado")
 	expect(t, a.do("GET", "/nope/route", nil), 404, "<!doctype html>")
 	expect(t, a.do("POST", "/nope/route", nil, hx), 404)
-	w := a.do("GET", "/boards/999", nil, hx)
+	// A board deleted in another tab sends htmx navigation back home.
+	if w := a.do("GET", "/boards/999", nil, hx); w.Code != 204 || w.Header().Get("HX-Redirect") != "/boards/999" {
+		t.Fatalf("htmx missing board = %d %v", w.Code, w.Header())
+	}
+	w := a.do("GET", "/cards/999", nil, hx)
 	if w.Code != 404 || w.Header().Get("HX-Reswap") != "none" || !strings.Contains(w.Header().Get("X-Toast"), `"level":"error"`) {
 		t.Fatalf("htmx 404 = %d reswap=%q toast=%q", w.Code, w.Header().Get("HX-Reswap"), w.Header().Get("X-Toast"))
+	}
+	if !strings.Contains(part.Body.String(), "<title>") {
+		t.Fatal("partial board response must carry <title> for document.title")
 	}
 }
 
@@ -465,6 +472,45 @@ func TestMarkdownPreviewAndCards(t *testing.T) {
 	expect(t, a.do("GET", fmt.Sprintf("/cards/%d", c.ID), nil, hx), 200, `data-mode="preview"`, `<li class="task"><input type="checkbox" disabled checked> a</li>`)
 }
 
+func TestStaleCardSaveIsAConflict(t *testing.T) {
+	a := newApp(t)
+	v := a.board("Rev")
+	c, _ := a.store.CreateCard(context.Background(), v.Columns[0].ID, "card")
+	first := url.Values{"title": {"card"}, "description": {"important text"}, "revision": {"0"}}
+	expect(t, a.do("PUT", fmt.Sprintf("/cards/%d", c.ID), first, hx), 200)
+	stale := url.Values{"title": {"other"}, "revision": {"0"}}
+	w := a.do("PUT", fmt.Sprintf("/cards/%d", c.ID), stale, hx)
+	if w.Code != http.StatusConflict || w.Header().Get("HX-Reswap") != "none" {
+		t.Fatalf("stale save = %d %v", w.Code, w.Header())
+	}
+	if got, _ := a.store.GetCard(context.Background(), c.ID); got.Description != "important text" {
+		t.Fatalf("lost update: %+v", got)
+	}
+	expect(t, a.do("GET", fmt.Sprintf("/cards/%d", c.ID), nil, hx), 200, `name="revision" value="1"`)
+}
+
+func TestFilteredEditsAndLabelFilterCleanup(t *testing.T) {
+	a := newApp(t)
+	v := a.board("FE")
+	board := fmt.Sprintf("/boards/%d", v.Board.ID)
+	ctx := context.Background()
+	c, _ := a.store.CreateCard(ctx, v.Columns[0].ID, "foo one")
+	_, _ = a.store.CreateCard(ctx, v.Columns[0].ID, "foo two")
+	w := a.do("PUT", fmt.Sprintf("/cards/%d/title", c.ID), url.Values{"title": {"renamed"}}, hx, currentURL(board+"?q=foo"))
+	expect(t, w, 200, `id="columns"`, `text-fg">1</span> de <span class="tabular-nums">2`)
+
+	l, _ := a.store.CreateLabel(ctx, v.Board.ID, store.LabelInput{Name: "x", Color: "red"})
+	w = a.do("DELETE", fmt.Sprintf("/labels/%d", l.ID), nil, hx, currentURL(fmt.Sprintf("%s?label=%d&q=", board, l.ID)))
+	expect(t, w, 200)
+	if strings.Contains(w.Body.String(), "filter-summary") || strings.Contains(w.Header().Get("HX-Replace-Url"), "label=") {
+		t.Fatalf("deleted label still filters: url=%q", w.Header().Get("HX-Replace-Url"))
+	}
+	// Opening the manager does not ship the whole board.
+	if strings.Contains(a.do("GET", fmt.Sprintf("/boards/%d/labels", v.Board.ID), nil, hx).Body.String(), `id="columns"`) {
+		t.Fatal("labels dialog GET must not re-render the board")
+	}
+}
+
 func TestLabels(t *testing.T) {
 	a := newApp(t)
 	v := a.board("Lab")
@@ -550,7 +596,7 @@ func TestBodyLimit(t *testing.T) {
 
 func TestRequestLogging(t *testing.T) {
 	a := newApp(t)
-	a.do("GET", "/boards/1", nil, hx)
+	a.do("GET", "/cards/1", nil, hx)
 	var entry map[string]any
 	for _, line := range strings.Split(strings.TrimSpace(a.logs.String()), "\n") {
 		_ = json.Unmarshal([]byte(line), &entry)
@@ -579,7 +625,7 @@ func TestPanicRecovery(t *testing.T) {
 }
 
 func TestHelpers(t *testing.T) {
-	if prefix("trello golang") != "TRE" || prefix("a1") != "A1" || prefix("!!") != "KAN" {
+	if prefix("trello golang") != "TRE" || prefix("a1") != "A1" || prefix("!!") != "KAN" || prefix("Ação") != "AÇÃ" || prefix("日本語テスト") != "日本語" {
 		t.Fatal("prefix")
 	}
 	if initial("ágil") != "Á" || initial("") != "?" {

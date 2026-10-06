@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -96,6 +97,12 @@ func (s *Server) showBoard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p, err := s.boardPage(r.Context(), id, s.filterFrom(r.URL.Query()))
+	if errors.Is(err, store.ErrNotFound) && r.Header.Get("HX-Request") == "true" {
+		// The board was deleted (e.g. in another tab): reload its URL, which
+		// shows the "not found" page instead of keeping a ghost board.
+		redirect(w, r, fmt.Sprintf("/boards/%d", id))
+		return
+	}
 	if err != nil {
 		s.fail(w, r, err)
 		return
@@ -103,7 +110,7 @@ func (s *Server) showBoard(w http.ResponseWriter, r *http.Request) {
 	rememberBoard(w, id)
 	if isHX(r) {
 		p.OOB = true
-		s.render(w, http.StatusOK, p, "main", "sidebar")
+		s.render(w, http.StatusOK, p, "main", "sidebar", "title-tag")
 		return
 	}
 	s.render(w, http.StatusOK, p, "layout")
@@ -169,7 +176,7 @@ func (s *Server) createBoard(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("HX-Retarget", "#main")
 	w.Header().Set("HX-Reswap", "innerHTML")
 	toast(w, "success", "Projeto criado.")
-	s.render(w, http.StatusCreated, p, "main", "sidebar", "modal-clear")
+	s.render(w, http.StatusCreated, p, "main", "sidebar", "modal-clear", "title-tag")
 }
 
 func (s *Server) boardSettings(w http.ResponseWriter, r *http.Request) {
@@ -209,7 +216,7 @@ func (s *Server) updateBoard(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("HX-Retarget", "#main")
 	w.Header().Set("HX-Reswap", "innerHTML")
 	toast(w, "success", "Projeto atualizado.")
-	s.render(w, http.StatusOK, p, "main", "sidebar", "modal-clear")
+	s.render(w, http.StatusOK, p, "main", "sidebar", "modal-clear", "title-tag")
 }
 
 func (s *Server) archiveBoard(archived bool) http.HandlerFunc {
@@ -465,9 +472,26 @@ func (s *Server) renameCard(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
-	if p, ok := s.cardFromPath(w, r); ok {
-		s.render(w, http.StatusOK, p, "card")
+	p, ok := s.cardFromPath(w, r)
+	if !ok {
+		return
 	}
+	s.renderWithFilteredBoard(w, r, p, "card")
+}
+
+// renderWithFilteredBoard renders names and, when a filter is active, also
+// the whole board out of band: an edited card may no longer match it.
+func (s *Server) renderWithFilteredBoard(w http.ResponseWriter, r *http.Request, p page, names ...string) {
+	if f := s.currentFilter(r); f.Active() {
+		bp, err := s.boardPage(r.Context(), p.Card.BoardID, f)
+		if err != nil {
+			s.fail(w, r, err)
+			return
+		}
+		p.View, p.ColumnsOOB = bp.View, true
+		names = append(names, "columns")
+	}
+	s.render(w, http.StatusOK, p, names...)
 }
 
 func (s *Server) updateCard(w http.ResponseWriter, r *http.Request) {
@@ -480,7 +504,14 @@ func (s *Server) updateCard(w http.ResponseWriter, r *http.Request) {
 		Title: r.FormValue("title"), Description: r.FormValue("description"),
 		Priority: formInt(r, "priority"), DueDate: r.FormValue("due_date"),
 	}
-	if _, err := s.store.UpdateCard(r.Context(), id, in); err != nil {
+	revision := int64(-1)
+	if v := r.FormValue("revision"); v != "" {
+		if revision, err = strconv.ParseInt(v, 10, 64); err != nil {
+			s.fail(w, r, errBadRequest)
+			return
+		}
+	}
+	if _, err := s.store.UpdateCardAt(r.Context(), id, in, revision); err != nil {
 		p, perr := s.cardPage(r.Context(), id)
 		if perr == nil && s.formError(w, r, err, p, "card-dialog") {
 			return
@@ -494,7 +525,7 @@ func (s *Server) updateCard(w http.ResponseWriter, r *http.Request) {
 	}
 	p.OOB = true
 	toast(w, "success", "Card salvo.")
-	s.render(w, http.StatusOK, p, "card", "modal-clear")
+	s.renderWithFilteredBoard(w, r, p, "card", "modal-clear")
 }
 
 func (s *Server) deleteCard(w http.ResponseWriter, r *http.Request) {
@@ -599,7 +630,7 @@ func (s *Server) toggleCardLabel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p.OOB = true
-	s.render(w, http.StatusOK, p, "card-labels", "card")
+	s.renderWithFilteredBoard(w, r, p, "card-labels", "card")
 }
 
 func (s *Server) labelsDialog(w http.ResponseWriter, r *http.Request) {
@@ -608,19 +639,47 @@ func (s *Server) labelsDialog(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
-	s.renderLabels(w, r, id, http.StatusOK, nil)
+	p, err := s.boardPage(r.Context(), id, s.currentFilter(r))
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	s.render(w, http.StatusOK, p, "labels-dialog")
 }
 
 // renderLabels shows the label manager and refreshes the board out of band,
 // since label changes alter the chips on the cards.
 func (s *Server) renderLabels(w http.ResponseWriter, r *http.Request, boardID int64, status int, verr store.ValidationError) {
-	p, err := s.boardPage(r.Context(), boardID, s.currentFilter(r))
+	f := s.currentFilter(r)
+	p, err := s.boardPage(r.Context(), boardID, f)
 	if err != nil {
 		s.fail(w, r, err)
 		return
 	}
+	if f.LabelID != 0 && !hasLabel(p.View.Labels, f.LabelID) {
+		f.LabelID = 0
+		if p, err = s.boardPage(r.Context(), boardID, f); err != nil {
+			s.fail(w, r, err)
+			return
+		}
+		if u, err := url.Parse(r.Header.Get("HX-Current-URL")); err == nil {
+			q := u.Query()
+			q.Del("label")
+			u.RawQuery = q.Encode()
+			w.Header().Set("HX-Replace-Url", u.RequestURI())
+		}
+	}
 	p.Errors, p.Form, p.ColumnsOOB = verr, r.Form, true
 	s.render(w, status, p, "labels-dialog", "columns", "filter-label")
+}
+
+func hasLabel(labels []store.Label, id int64) bool {
+	for _, l := range labels {
+		if l.ID == id {
+			return true
+		}
+	}
+	return false
 }
 
 func labelInput(r *http.Request) store.LabelInput {

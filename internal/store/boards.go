@@ -26,7 +26,7 @@ type BoardInput struct {
 }
 
 func (in *BoardInput) normalize() error {
-	in.Name = clampText(in.Name)
+	in.Name = singleLine(in.Name)
 	in.Description = clampText(in.Description)
 	if in.Color == "" {
 		in.Color = "slate"

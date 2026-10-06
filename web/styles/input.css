@@ -18,11 +18,13 @@
 	--line-strong: rgb(0 0 0 / 0.14);
 	--fg: #1b1c1f;
 	--muted: #5c6068;
-	--faint: #6f747c;
+	--faint: #63676f;
+	--danger: #b91c1c;
 	--accent: #5e6ad2;
 	--accent-hover: #4d58c4;
 	--accent-fg: #ffffff;
 	--focus: rgb(94 106 210 / 0.45);
+	--focus-ring: #4d58c4;
 }
 
 .dark {
@@ -35,11 +37,13 @@
 	--line-strong: rgb(255 255 255 / 0.12);
 	--fg: #f7f8f8;
 	--muted: #a0a5ae;
-	--faint: #80858d;
+	--faint: #858a92;
+	--danger: #fca5a5;
 	--accent: #5e6ad2;
 	--accent-hover: #7170ff;
 	--accent-fg: #ffffff;
 	--focus: rgb(113 112 255 / 0.5);
+	--focus-ring: #8a89ff;
 }
 
 @theme inline {
@@ -74,7 +78,8 @@
 		letter-spacing: -0.005em;
 	}
 	:focus-visible {
-		outline: 2px solid var(--focus);
+		/* Solid ring: the translucent --focus fell below 3:1 on white. */
+		outline: 2px solid var(--focus-ring);
 		outline-offset: 1px;
 	}
 	.card-open:focus-visible {
@@ -103,7 +108,7 @@
 		@apply inline-flex h-6 cursor-pointer items-center justify-center gap-1.5 rounded-md px-1.5 text-[12px] font-medium whitespace-nowrap transition-colors duration-100 disabled:cursor-not-allowed disabled:opacity-40 text-muted hover:bg-surface-hover hover:text-fg;
 	}
 	.btn-danger {
-		@apply inline-flex h-7 cursor-pointer items-center justify-center gap-1.5 rounded-md px-2.5 text-[12px] font-medium whitespace-nowrap transition-colors duration-100 disabled:cursor-not-allowed disabled:opacity-40 border border-red-500/30 bg-red-500/10 text-red-600 hover:bg-red-500/20 dark:text-red-400;
+		@apply inline-flex h-7 cursor-pointer items-center justify-center gap-1.5 rounded-md px-2.5 text-[12px] font-medium whitespace-nowrap transition-colors duration-100 disabled:cursor-not-allowed disabled:opacity-40 border border-red-500/30 bg-red-500/10 text-[var(--danger)] hover:bg-red-500/20;
 	}
 	.input {
 		@apply h-7 rounded-md border border-line-strong bg-surface px-2 text-[13px] text-fg placeholder:text-faint focus:border-accent focus:outline-none focus:ring-2 focus:ring-[var(--focus)];
@@ -130,7 +135,7 @@
 		@apply relative rounded-lg border border-line bg-surface p-2.5 shadow-[0_1px_1px_rgb(0_0_0/0.04)] transition-[border-color,background-color,opacity] duration-100 hover:border-line-strong;
 	}
 	.card:has(.card-open:focus-visible) {
-		@apply border-accent ring-2 ring-[var(--focus)];
+		@apply border-accent ring-2 ring-[var(--focus-ring)];
 	}
 	.card.dragging {
 		@apply opacity-40;

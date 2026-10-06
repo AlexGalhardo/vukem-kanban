@@ -16,7 +16,7 @@
 {{define "new-board-dialog"}}
 <dialog closedby="any" class="dialog w-full max-w-md" aria-labelledby="new-board-title" data-testid="new-board-dialog">
 	{{template "dialog-header" (dict "ID" "new-board-title" "Title" "Novo projeto")}}
-	<form class="mt-4 space-y-4" hx-sync="this:drop" hx-post="/boards" hx-target="#modal">
+	<form class="mt-4 space-y-4" hx-sync="this:queue first" hx-post="/boards" hx-target="#modal">
 		<div>
 			<label class="label" for="board-name">Nome</label>
 			<input id="board-name" name="name" value="{{val .Form "name" ""}}" required maxlength="80" autofocus autocomplete="off" class="input w-full"
@@ -92,7 +92,7 @@
 		<li class="text-[12px] text-faint">Nenhuma label ainda.</li>
 		{{- end}}
 	</ul>
-	<form class="mt-4 space-y-3 border-t border-line pt-4" hx-sync="this:drop" hx-post="/boards/{{$b.ID}}/labels" hx-target="#modal">
+	<form class="mt-4 space-y-3 border-t border-line pt-4" hx-sync="this:queue first" hx-post="/boards/{{$b.ID}}/labels" hx-target="#modal">
 		<div>
 			<label class="label" for="new-label">Nova label</label>
 			<input id="new-label" name="name" value="{{val .Form "name" ""}}" required maxlength="30" autocomplete="off" placeholder="Ex.: bug" class="input w-full">
@@ -107,7 +107,7 @@
 {{define "import-dialog"}}
 <dialog closedby="any" class="dialog w-full max-w-md" aria-labelledby="import-title" data-testid="import-dialog">
 	{{template "dialog-header" (dict "ID" "import-title" "Title" "Importar dados")}}
-	<form class="mt-4 space-y-4" hx-sync="this:drop" hx-post="/import" hx-encoding="multipart/form-data" hx-target="#modal"
+	<form class="mt-4 space-y-4" hx-sync="this:queue first" hx-post="/import" hx-encoding="multipart/form-data" hx-target="#modal"
 		hx-confirm="Importar agora? No modo “Substituir tudo” os projetos atuais são apagados (um backup é salvo antes).">
 		<div>
 			<label class="label" for="import-file">Arquivo JSON exportado</label>

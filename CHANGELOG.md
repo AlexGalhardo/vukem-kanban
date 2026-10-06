@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Mover o card focado pelo teclado: Alt+↑/↓ na coluna, Alt+←/→ entre colunas (alternativa acessível ao arrastar).
+- Segunda rodada de QA adversarial com 20 specs de regressão (`e2e/web/qa2-*.spec.ts`).
 - Markdown na descrição dos cards: abas Escrever/Visualizar, listas e checklists com continuação automática no Enter, Tab/Shift+Tab, Ctrl+B/Ctrl+I, links seguros e progresso do checklist no card (`1/3`). Renderer próprio em Go (`internal/markdown`), sem dependências.
 - `bun run test:perf` (orçamentos de performance e benchmarks) e `node --check` dos JS no `bun run lint`.
 - Meta description na página.
@@ -19,6 +21,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Texto digitado logo após Enter em "+ Novo card"/"+ Nova coluna" era cortado ou perdido; o campo é limpo no envio e restaurado em caso de erro.
+- Editar, renomear ou alternar label com filtro ativo agora re-renderiza o quadro (card some do filtro e o resumo fica correto).
+- Excluir a label usada no filtro ativo remove o filtro (e o parâmetro da URL).
+- Duas abas: salvar um card desatualizado não sobrescreve mais a versão nova (409 com aviso; coluna `revision`, migração `0002`).
+- Foco do teclado volta ao lugar certo após salvar/fechar diálogos, alternar labels, criar labels e editar títulos.
+- Fechar o diálogo do card com alterações não salvas pede confirmação.
+- Arrastar com o servidor fora do ar devolve o card à posição original.
+- Título da aba/janela acompanha o projeto aberto; projeto excluído em outra aba mostra "Projeto não encontrado".
+- Diálogo de Labels não reenvia o quadro inteiro ao abrir; Ctrl+K não abre a palette sobre outro diálogo.
+- Esc fecha o menu da coluna; sidebar em tela estreita prende o foco (`inert` no conteúdo).
+- Contraste: textos secundários, botões de exclusão e anel de foco atingem WCAG AA.
+- Títulos e nomes só com caracteres invisíveis (NUL, zero-width) ou UTF-8 inválido são rejeitados/limpos; chave do projeto conta letras, não bytes ("Ação" → `AÇÃ`).
+- Assets estáticos usam hash do conteúdo em `?v=`, evitando JS/CSS antigos em cache após atualizar.
 - Corpo de requisição *chunked* acima do limite agora retorna 413 em vez de campos truncados.
 - Backups simultâneos não colidem mais no nome do arquivo.
 - Links da sidebar com alvo de toque abaixo de 24 px.
