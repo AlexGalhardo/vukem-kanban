@@ -93,8 +93,8 @@ func BenchmarkMoveCard500(b *testing.B) {
 // the test stays stable on slow machines while still catching regressions
 // such as an N+1 query (which would be orders of magnitude slower).
 func TestPerformanceBudgets(t *testing.T) {
-	if testing.Short() {
-		t.Skip("performance budgets skipped in -short mode")
+	if testing.Short() || raceEnabled {
+		t.Skip("performance budgets need a normal build (no -short, no -race)")
 	}
 	a := newApp(t)
 	v := seedBoard(t, a, 500)

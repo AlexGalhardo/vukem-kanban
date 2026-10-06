@@ -18,6 +18,9 @@
 			</span>
 			{{- end}}
 			{{- range $c.Labels}}<span class="chip"><span class="size-2 rounded-full {{dot .Color}}" aria-hidden="true"></span>{{.Name}}</span>{{end}}
+			{{- with checklist $c.Description}}{{if .Total}}
+			<span class="chip {{if eq .Done .Total}}border-green-500/40 text-green-600 dark:text-green-400{{end}}" title="Checklist">{{template "icon-check"}}{{.Done}}/{{.Total}}<span class="sr-only"> itens concluídos</span></span>
+			{{- end}}{{end}}
 			{{- if $c.Description}}<span class="chip border-transparent px-0.5" title="Tem descrição">{{template "icon-text"}}<span class="sr-only">Tem descrição</span></span>{{end}}
 		</span>
 		{{- end}}
@@ -56,6 +59,13 @@
 </div>
 {{end}}
 
+{{define "markdown-preview"}}
+<div id="md-preview" class="md-preview markdown min-h-24 cursor-text text-[13px]" role="tabpanel" tabindex="0" data-testid="markdown-preview"
+	title="Clique duas vezes para editar">
+	{{- if .Src}}{{markdown .Src}}{{else}}<p class="text-faint">Sem descrição.</p>{{end -}}
+</div>
+{{end}}
+
 {{define "card-dialog"}}
 {{- $c := .Card}}
 <dialog closedby="any" class="dialog w-full max-w-2xl p-0" aria-labelledby="card-dialog-title" data-testid="card-dialog">
@@ -73,10 +83,19 @@
 					class="w-full bg-transparent text-[18px] font-semibold text-fg placeholder:text-faint focus:outline-none" {{if .Errors.title}}aria-invalid="true" aria-describedby="err-title"{{end}}>
 				{{with .Errors.title}}<p id="err-title" class="field-error">{{.}}</p>{{end}}
 			</div>
-			<div>
-				<label class="sr-only" for="card-description">Descrição</label>
-				<textarea id="card-description" name="description" rows="9" maxlength="10000" placeholder="Adicione uma descrição…"
-					class="w-full resize-y bg-transparent text-[13px] leading-relaxed text-fg placeholder:text-faint focus:outline-none">{{val .Form "description" $c.Description}}</textarea>
+			{{- $desc := val .Form "description" $c.Description}}
+			<div data-md-editor data-mode="{{if and $desc (not .Errors)}}preview{{else}}write{{end}}">
+				<div class="mb-2 flex items-center gap-1" role="tablist" aria-label="Descrição">
+					<button type="button" role="tab" class="md-tab" data-md-tab="write" aria-controls="card-description">Escrever</button>
+					<button type="button" role="tab" class="md-tab" data-md-tab="preview" aria-controls="md-preview"
+						hx-post="/markdown/preview" hx-include="#card-description" hx-target="#md-preview" hx-swap="outerHTML">Visualizar</button>
+					<span class="ml-auto text-[11px] text-faint">Markdown · <kbd>Ctrl</kbd> <kbd>B</kbd> <kbd>I</kbd></span>
+				</div>
+				<label class="sr-only" for="card-description">Descrição (Markdown)</label>
+				<textarea id="card-description" name="description" rows="10" maxlength="10000" data-markdown
+					placeholder="Adicione uma descrição… Markdown: **negrito**, `código`, - [ ] tarefa, [link](https://…)"
+					class="md-write w-full resize-y rounded-md bg-transparent font-mono text-[12.5px] leading-relaxed text-fg placeholder:text-faint focus:outline-none">{{$desc}}</textarea>
+				{{template "markdown-preview" (dict "Src" $desc)}}
 				{{with .Errors.description}}<p class="field-error">{{.}}</p>{{end}}
 			</div>
 			<div class="flex items-center gap-2">

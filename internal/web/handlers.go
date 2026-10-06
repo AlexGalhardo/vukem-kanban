@@ -678,6 +678,11 @@ func (s *Server) deleteLabel(w http.ResponseWriter, r *http.Request) {
 	s.renderLabels(w, r, l.BoardID, http.StatusOK, nil)
 }
 
+// markdownPreview renders the description being edited (no persistence).
+func (s *Server) markdownPreview(w http.ResponseWriter, r *http.Request) {
+	s.render(w, http.StatusOK, map[string]string{"Src": r.FormValue("description")}, "markdown-preview")
+}
+
 func (s *Server) export(w http.ResponseWriter, r *http.Request) {
 	snap, err := s.store.Export(r.Context())
 	if err != nil {
@@ -776,6 +781,8 @@ func (s *Server) backup(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) writeBackup(r *http.Request) (string, error) {
+	s.backupMu.Lock()
+	defer s.backupMu.Unlock()
 	dir := filepath.Join(filepath.Dir(s.store.Path()), "backups")
 	if err := os.MkdirAll(dir, 0o750); err != nil {
 		return "", err

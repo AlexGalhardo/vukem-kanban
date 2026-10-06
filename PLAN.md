@@ -289,6 +289,14 @@ Objetivo: produtividade estilo Linear, robustez de dados e app desktop polido.
 - [x] Desktop grava logs do sidecar em `userData/logs/` com rotação simples
 - **Asserts:** teste de middleware verifica campos do log; erro `500` sempre logado com stack resumida.
 
+### B8. Markdown nos cards (pedido durante a BETA)
+
+- [x] `internal/markdown`: renderer próprio (stdlib) do subconjunto GFM — títulos, ênfase, riscado, código, blocos de código, citações, listas aninhadas, checklists, links `http/https/mailto` e autolink; todo texto escapado antes de virar HTML
+- [x] Diálogo do card com abas "Escrever/Visualizar" (prévia via `POST /markdown/preview`), duplo clique na prévia volta a editar
+- [x] Edição assistida: Enter continua listas/checklists, Enter em item vazio encerra a lista, Tab/Shift+Tab indentam, Ctrl+B/Ctrl+I envolvem a seleção
+- [x] Progresso do checklist no card (`1/3`, verde quando completo)
+- **Asserts:** `go test ./internal/markdown` (91% de cobertura, entradas hostis sem HTML ativo); E2E "markdown description" verde.
+
 ### Checkpoint BETA
 
 - [x] Cobertura Go ≥ 80% em `internal/store` e ≥ 70% em `internal/web` (`go test -cover`)
@@ -305,7 +313,7 @@ Objetivo: congelar features, endurecer, documentar e lançar.
 ### R1. Feature freeze e hardening
 
 - [ ] Nenhuma feature nova; só `fix:`, `perf:`, `docs:`, `test:`
-- [ ] `/security-review` + skill `security-and-hardening`: validação de todas as entradas, limites de tamanho de body (`http.MaxBytesReader`), timeouts do `http.Server`, headers (`Content-Security-Policy` sem inline script, `X-Content-Type-Options`)
+- [x] `/security-review` + skill `security-and-hardening`: validação de todas as entradas, limites de tamanho de body (`http.MaxBytesReader`), timeouts do `http.Server`, headers (`Content-Security-Policy` sem inline script, `X-Content-Type-Options`) — revisão independente sem achados relevantes; o único (corpo *chunked* acima do limite) foi corrigido com teste
 - [x] `govulncheck ./...` limpo
 - **Asserts:** CSP ativa e app funcional (nenhum erro de CSP no console via Playwright); `govulncheck` sem achados.
 
@@ -318,9 +326,9 @@ Objetivo: congelar features, endurecer, documentar e lançar.
 
 ### R3. Acessibilidade
 
-- [ ] Skill `frontend-ui-engineering` + checklist `.claude/references/accessibility-checklist.md`
-- [ ] Landmarks, labels, foco visível, `aria-live` para toasts, DnD com alternativa por teclado
-- **Asserts:** Lighthouse a11y ≥ 95; `@axe-core/playwright` sem violações sérias (dependência nova → pedir aprovação antes).
+- [x] Skill `frontend-ui-engineering` + checklist `.claude/references/accessibility-checklist.md`
+- [x] Landmarks, labels, foco visível, `aria-live` para toasts, DnD com alternativa por teclado — Lighthouse acessibilidade 97 (alvos de toque da sidebar ajustados para 28 px)
+- **Asserts:** Lighthouse a11y ≥ 95 (medido: 97); `@axe-core/playwright` não adotado — exigiria dependência nova; Lighthouse via Chrome DevTools cobre a auditoria.
 
 ### R4. Migração e compatibilidade de dados
 

@@ -28,9 +28,10 @@ Todos via `bun run <script>` (definidos em `package.json`).
 | --- | --- |
 | `bun run dev` | Tailwind em watch + `go run ./cmd/kanban` |
 | `bun run build` | CSS minificado + `go build -o bin/kanban ./cmd/kanban` |
-| `bun run lint` | `golangci-lint run ./...` + `golangci-lint fmt --diff` |
+| `bun run lint` | `golangci-lint run ./...` + `golangci-lint fmt --diff` + `tsc --noEmit` + `node --check` dos JS estáticos |
 | `bun run fmt` | `golangci-lint fmt` (aplica gofumpt + goimports) |
 | `bun run test` | `go test -race ./...` |
+| `bun run test:perf` | orçamentos de performance + benchmarks (500 cards) sem `-race` |
 | `bun run smoke` | builda, sobe binário, checa `--version`, `/healthz`, `/`, estáticos e criação de quadro, derruba |
 | `bun run test:scripts` | testes unitários dos scripts TypeScript (`bun test scripts/`) |
 | `bun run e2e` | Playwright web contra servidor real com DB temporário |

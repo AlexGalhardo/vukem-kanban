@@ -121,7 +121,7 @@
 		@apply inline-flex h-5 items-center gap-1 rounded-full border border-line-strong px-1.5 text-[11px] font-medium text-muted;
 	}
 	.nav-link {
-		@apply flex h-7 items-center gap-2 rounded-md px-2 text-[13px] text-muted transition-colors duration-100 hover:bg-surface-hover hover:text-fg;
+		@apply flex min-h-[28px] items-center gap-2 rounded-md px-2 text-[13px] text-muted transition-colors duration-100 hover:bg-surface-hover hover:text-fg;
 	}
 	.nav-link[aria-current="page"] {
 		@apply bg-surface-hover font-medium text-fg;
@@ -149,6 +149,43 @@
 		@apply pointer-events-auto flex items-start gap-2 rounded-lg border border-line-strong bg-elevated px-3 py-2.5 text-[13px] shadow-xl;
 	}
 }
+
+/* Markdown editor: data-mode on the wrapper picks the visible pane. */
+[data-md-editor][data-mode="write"] .md-preview,
+[data-md-editor][data-mode="preview"] .md-write {
+	display: none;
+}
+.md-tab {
+	@apply inline-flex h-6 cursor-pointer items-center rounded-md px-2 text-[12px] font-medium text-muted hover:bg-surface-hover hover:text-fg;
+}
+[data-md-editor][data-mode="write"] [data-md-tab="write"],
+[data-md-editor][data-mode="preview"] [data-md-tab="preview"] {
+	@apply bg-surface-hover text-fg;
+}
+
+/* Rendered Markdown (card descriptions). */
+.markdown {
+	@apply leading-relaxed text-fg;
+	overflow-wrap: anywhere;
+}
+.markdown > * + * {
+	@apply mt-2;
+}
+.markdown h1 { @apply text-[18px] font-semibold; }
+.markdown h2 { @apply text-[16px] font-semibold; }
+.markdown h3, .markdown h4, .markdown h5, .markdown h6 { @apply text-[14px] font-semibold; }
+.markdown a { @apply text-accent underline underline-offset-2 hover:text-accent-hover; }
+.markdown code { @apply rounded bg-surface-hover px-1 py-0.5 font-mono text-[12px]; }
+.markdown pre { @apply overflow-x-auto rounded-md border border-line bg-panel p-3; }
+.markdown pre code { @apply bg-transparent p-0; }
+.markdown blockquote { @apply border-l-2 border-line-strong pl-3 text-muted; }
+.markdown ul { @apply list-disc pl-5; }
+.markdown ol { @apply list-decimal pl-5; }
+.markdown li + li { @apply mt-0.5; }
+.markdown li.task { @apply -ml-5 list-none; }
+.markdown li.task input { @apply mr-1 align-middle accent-[var(--accent)]; }
+.markdown hr { @apply border-line; }
+.markdown del { @apply text-muted; }
 
 /* htmx: includeIndicatorStyles is off so the CSP can forbid inline styles. */
 .htmx-indicator {

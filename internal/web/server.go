@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/AlexGalhardo/trello-golang-htmx/internal/store"
@@ -30,6 +31,9 @@ type Server struct {
 	tmpl    *template.Template
 	now     func() time.Time
 	handler http.Handler
+	// backupMu serializes backups so concurrent clicks cannot pick the same
+	// file name between the existence check and VACUUM INTO.
+	backupMu sync.Mutex
 }
 
 // New builds the HTTP handler. Templates are parsed once here so a broken
@@ -87,6 +91,7 @@ func (s *Server) routes() *http.ServeMux {
 	mux.HandleFunc("PUT /labels/{id}", s.updateLabel)
 	mux.HandleFunc("DELETE /labels/{id}", s.deleteLabel)
 
+	mux.HandleFunc("POST /markdown/preview", s.markdownPreview)
 	mux.HandleFunc("GET /export", s.export)
 	mux.HandleFunc("GET /import", s.importDialog)
 	mux.HandleFunc("POST /import", s.importData)

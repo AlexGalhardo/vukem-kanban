@@ -9,12 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Markdown na descrição dos cards: abas Escrever/Visualizar, listas e checklists com continuação automática no Enter, Tab/Shift+Tab, Ctrl+B/Ctrl+I, links seguros e progresso do checklist no card (`1/3`). Renderer próprio em Go (`internal/markdown`), sem dependências.
+- `bun run test:perf` (orçamentos de performance e benchmarks) e `node --check` dos JS no `bun run lint`.
+- Meta description na página.
+
 - ADRs em `docs/adr/` (D1–D9) e screenshots no README.
 - Orçamentos de performance em teste: 500 cards renderizam em ~14 ms e mover um card leva ~6 ms (metas: 200 ms e 50 ms).
 - Teste de compatibilidade: banco e export gerados pela `v0.4.0-alpha.1` abrem, migram e importam sem perda.
 
 ### Fixed
 
+- Corpo de requisição *chunked* acima do limite agora retorna 413 em vez de campos truncados.
+- Backups simultâneos não colidem mais no nome do arquivo.
+- Links da sidebar com alvo de toque abaixo de 24 px.
 - Export JSON gravava as labels com chaves `Name`/`Color`; agora usa `name`/`color` (exports antigos continuam importando).
 
 ## [0.4.0-alpha.1] - 2026-10-05

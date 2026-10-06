@@ -3,6 +3,7 @@ package web
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"log/slog"
 	"net/http"
 	"runtime/debug"
@@ -63,6 +64,23 @@ func (s *Server) middleware(next http.Handler) http.Handler {
 			return
 		}
 		r.Body = http.MaxBytesReader(w, r.Body, limit)
+		// Bodies without Content-Length (chunked) are parsed here so an
+		// oversized one becomes a 413 instead of silently truncated fields.
+		if strings.HasPrefix(r.Header.Get("Content-Type"), "application/x-www-form-urlencoded") {
+			if err := r.ParseForm(); err != nil {
+				var maxErr *http.MaxBytesError
+				if errors.As(err, &maxErr) {
+					if r.Header.Get("HX-Request") == "true" {
+						w.Header().Set("HX-Reswap", "none")
+						toast(w, "error", "Conteúdo grande demais.")
+					}
+					http.Error(w, "Conteúdo grande demais.", http.StatusRequestEntityTooLarge)
+					return
+				}
+				http.Error(w, "Requisição inválida.", http.StatusBadRequest)
+				return
+			}
+		}
 		next.ServeHTTP(w, r)
 	}))
 

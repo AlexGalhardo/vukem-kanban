@@ -391,5 +391,84 @@
 		if (e.key === "Escape" && e.target.id === "search") e.target.blur();
 	});
 
+	// ---------- Markdown editor (card description) ----------
+	function setMdMode(editor, mode) {
+		editor.dataset.mode = mode;
+		$$("[data-md-tab]", editor).forEach((t) => t.setAttribute("aria-selected", String(t.dataset.mdTab === mode)));
+		if (mode === "write") {
+			const ta = $("textarea[data-markdown]", editor);
+			if (ta) ta.focus();
+		}
+	}
+
+	document.addEventListener("click", (e) => {
+		const tab = e.target.closest("[data-md-tab]");
+		if (tab) setMdMode(tab.closest("[data-md-editor]"), tab.dataset.mdTab);
+	});
+	document.addEventListener("dblclick", (e) => {
+		// Links inside the preview keep working; double-click elsewhere edits.
+		const preview = e.target.closest(".md-preview");
+		if (preview && !e.target.closest("a")) setMdMode(preview.closest("[data-md-editor]"), "write");
+	});
+	document.body.addEventListener("htmx:after:settle", () => {
+		$$("[data-md-editor]").forEach((ed) => setMdMode(ed, ed.dataset.mode || "write"));
+	});
+
+	// replaceRange edits the textarea and notifies listeners (htmx, counters).
+	function replaceRange(ta, start, end, text, caretStart, caretEnd) {
+		ta.setRangeText(text, start, end, "end");
+		if (caretStart !== undefined) ta.setSelectionRange(caretStart, caretEnd ?? caretStart);
+		ta.dispatchEvent(new Event("input", { bubbles: true }));
+	}
+
+	function wrapSelection(ta, mark) {
+		const { selectionStart: s, selectionEnd: e, value } = ta;
+		const inner = value.slice(s, e) || "texto";
+		replaceRange(ta, s, e, mark + inner + mark, s + mark.length, s + mark.length + inner.length);
+	}
+
+	const listRe = /^(\s*)([-*+]|(\d+)([.)]))\s+(\[[ xX]\]\s+)?(.*)$/;
+
+	document.addEventListener("keydown", (e) => {
+		const ta = e.target;
+		if (!(ta instanceof HTMLTextAreaElement) || !ta.matches("[data-markdown]")) return;
+		const mod = e.ctrlKey || e.metaKey;
+		if (mod && (e.key === "b" || e.key === "B")) {
+			e.preventDefault();
+			return wrapSelection(ta, "**");
+		}
+		if (mod && (e.key === "i" || e.key === "I")) {
+			e.preventDefault();
+			return wrapSelection(ta, "_");
+		}
+		const { selectionStart: pos, value } = ta;
+		const lineStart = value.lastIndexOf("\n", pos - 1) + 1;
+		if (e.key === "Tab") {
+			e.preventDefault();
+			if (e.shiftKey) {
+				const cut = value.slice(lineStart, lineStart + 2) === "  " ? 2 : value[lineStart] === "\t" ? 1 : 0;
+				if (cut) replaceRange(ta, lineStart, lineStart + cut, "", Math.max(lineStart, pos - cut));
+			} else {
+				replaceRange(ta, lineStart, lineStart, "  ", pos + 2);
+			}
+			return;
+		}
+		if (e.key !== "Enter" || mod || e.shiftKey || ta.selectionStart !== ta.selectionEnd) return;
+		// Enter on a list line continues the list (Linear/GitHub behaviour);
+		// Enter on an empty item ends it.
+		const m = value.slice(lineStart, pos).match(listRe);
+		if (!m) return;
+		e.preventDefault();
+		const [, indent, bullet, num, sep, task, text] = m;
+		if (!text.trim()) {
+			// Leave a blank line so what follows is a new paragraph.
+			replaceRange(ta, lineStart, pos, "\n", lineStart + 1);
+			return;
+		}
+		const marker = num ? `${Number(num) + 1}${sep}` : bullet;
+		const insert = `\n${indent}${marker} ${task ? "[ ] " : ""}`;
+		replaceRange(ta, pos, pos, insert, pos + insert.length);
+	});
+
 	window.kanban = { toast };
 })();

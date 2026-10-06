@@ -59,6 +59,7 @@ ADRs completos irão para `docs/adr/` na fase 1.0.0 RC (ver `PLAN.md` R5).
 cmd/kanban/main.go           # flags (--addr, --db, --version, --log-level), wiring, shutdown gracioso
 internal/store/              # Open(), migrações, repositórios
 internal/store/migrations/   # NNNN_descricao.sql (embed)
+internal/markdown/           # renderer Markdown seguro (subconjunto GFM) das descrições
 internal/web/                # handlers, middleware, render
 internal/web/templates/      # layout.html, partials/*.html
 internal/web/static/         # htmx.min.js (vendorizado), app.js, app.css (gerado, ignorado no git)

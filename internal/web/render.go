@@ -14,6 +14,7 @@ import (
 	"unicode"
 	"unicode/utf16"
 
+	"github.com/AlexGalhardo/trello-golang-htmx/internal/markdown"
 	"github.com/AlexGalhardo/trello-golang-htmx/internal/store"
 )
 
@@ -71,7 +72,12 @@ var funcs = template.FuncMap{
 		}
 		return m, nil
 	},
-	"add":        func(a, b int) int { return a + b },
+	"add":      func(a, b int) int { return a + b },
+	"markdown": markdown.Render,
+	"checklist": func(src string) map[string]int {
+		done, total := markdown.Checklist(src)
+		return map[string]int{"Done": done, "Total": total}
+	},
 	"initial":    initial,
 	"statusKind": statusKind,
 	// pie returns the stroke-dasharray length (of a 2πr≈15.7 circle) that

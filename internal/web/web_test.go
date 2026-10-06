@@ -438,6 +438,33 @@ func TestDeclaredOversizedBodyIs413(t *testing.T) {
 	}
 }
 
+func TestChunkedOversizedBodyIs413(t *testing.T) {
+	a := newApp(t)
+	body := "name=" + strings.Repeat("x", maxFormBytes+10)
+	r := httptest.NewRequest("POST", "/boards", strings.NewReader(body))
+	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	r.ContentLength = -1 // unknown length, as with Transfer-Encoding: chunked
+	w := httptest.NewRecorder()
+	a.srv.ServeHTTP(w, r)
+	if w.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("chunked oversized = %d", w.Code)
+	}
+}
+
+func TestMarkdownPreviewAndCards(t *testing.T) {
+	a := newApp(t)
+	v := a.board("Md")
+	w := a.do("POST", "/markdown/preview", url.Values{"description": {"**forte** <script>x</script>\n- [x] a\n- [ ] b"}}, hx)
+	expect(t, w, 200, `id="md-preview"`, "<strong>forte</strong>", "&lt;script&gt;")
+	if strings.Contains(w.Body.String(), "<script>x") {
+		t.Fatal("preview must escape HTML")
+	}
+	c, _ := a.store.CreateCard(context.Background(), v.Columns[0].ID, "md")
+	_, _ = a.store.UpdateCard(context.Background(), c.ID, store.CardInput{Title: "md", Description: "- [x] a\n- [ ] b\n- [ ] c"})
+	expect(t, a.do("GET", fmt.Sprintf("/boards/%d", v.Board.ID), nil), 200, "1/3")
+	expect(t, a.do("GET", fmt.Sprintf("/cards/%d", c.ID), nil, hx), 200, `data-mode="preview"`, `<li class="task"><input type="checkbox" disabled checked> a</li>`)
+}
+
 func TestLabels(t *testing.T) {
 	a := newApp(t)
 	v := a.board("Lab")
