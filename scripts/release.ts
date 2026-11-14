@@ -5,7 +5,7 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 
-export const repoUrl = "https://github.com/AlexGalhardo/trello-golang-htmx";
+export const repoUrl = "https://github.com/AlexGalhardo/vukem-kanban";
 
 export const goTargets: readonly (readonly [string, string])[] = [
 	["windows", "amd64"],

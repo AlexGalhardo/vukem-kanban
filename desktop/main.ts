@@ -13,7 +13,7 @@ import {
 	shell,
 } from "electron";
 
-const REPO_URL = "https://github.com/AlexGalhardo/trello-golang-htmx";
+const REPO_URL = "https://github.com/AlexGalhardo/vukem-kanban";
 const STARTUP_TIMEOUT_MS = 15_000;
 const LOG_MAX_BYTES = 5 * 1024 * 1024;
 

@@ -20,7 +20,7 @@
 		<div>
 			<label class="label" for="board-name">Nome</label>
 			<input id="board-name" name="name" value="{{val .Form "name" ""}}" required maxlength="80" autofocus autocomplete="off" class="input w-full"
-				placeholder="Ex.: trello-golang-htmx" {{if .Errors.name}}aria-invalid="true" aria-describedby="err-name"{{end}}>
+				placeholder="Ex.: vukem-kanban" {{if .Errors.name}}aria-invalid="true" aria-describedby="err-name"{{end}}>
 			{{with .Errors.name}}<p id="err-name" class="field-error">{{.}}</p>{{end}}
 		</div>
 		<div>
