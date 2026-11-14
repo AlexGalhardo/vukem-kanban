@@ -4,22 +4,19 @@ package store
 import (
 	"context"
 	"database/sql"
-	"embed"
 	"errors"
 	"fmt"
-	"io/fs"
-	"net/url"
 	"path/filepath"
 	"sort"
 	"strings"
 	"time"
 	"unicode"
 
-	_ "modernc.org/sqlite" // registers the "sqlite" driver
-)
+	"github.com/AlexGalhardo/vukem/database"
+	"github.com/AlexGalhardo/vukem/schema"
 
-//go:embed migrations/*.sql
-var migrationsFS embed.FS
+	"github.com/AlexGalhardo/trello-golang-htmx/database/migrations"
+)
 
 var (
 	ErrNotFound       = errors.New("not found")
@@ -79,101 +76,56 @@ type Store struct {
 	db   *sql.DB
 	path string
 	now  func() time.Time
+	// closer releases a database this store opened itself (see Open).
+	closer func() error
 }
 
-// Open opens (creating if needed) the database at path and applies pending
-// migrations. When an existing database has pending migrations, a copy is
-// written next to it first so a failed upgrade never loses data.
+// New wraps an open database whose schema is already migrated. The caller
+// (the vukem app) owns the connection and closes it on shutdown.
+func New(ctx context.Context, db *sql.DB) (*Store, error) {
+	var path string
+	if err := db.QueryRowContext(ctx, `SELECT file FROM pragma_database_list WHERE name = 'main'`).Scan(&path); err != nil {
+		return nil, fmt.Errorf("locate database file: %w", err)
+	}
+	return &Store{db: db, path: path, now: time.Now}, nil
+}
+
+// Open opens a standalone SQLite database at path, migrates it and returns a
+// store that closes it. The app itself gets its connection from vukem; this
+// is for tests and tools.
 func Open(ctx context.Context, path string) (*Store, error) {
-	q := url.Values{}
-	q.Add("_pragma", "foreign_keys(1)")
-	q.Add("_pragma", "journal_mode(WAL)")
-	q.Add("_pragma", "busy_timeout(5000)")
-	q.Add("_pragma", "synchronous(NORMAL)")
-	db, err := sql.Open("sqlite", "file:"+filepath.ToSlash(path)+"?"+q.Encode())
+	db, err := database.Open(ctx, "file:"+filepath.ToSlash(path))
 	if err != nil {
 		return nil, fmt.Errorf("open sqlite: %w", err)
 	}
-	// SQLite allows a single writer; one connection serializes everything and
-	// avoids "database is locked" under concurrent requests.
-	db.SetMaxOpenConns(1)
-	if err := db.PingContext(ctx); err != nil {
-		_ = db.Close()
-		return nil, fmt.Errorf("ping sqlite: %w", err)
+	m, err := schema.NewMigrator(db, migrations.All())
+	if err == nil {
+		err = migrations.Apply(ctx, db, m)
 	}
-	s := &Store{db: db, path: path, now: time.Now}
-	if err := s.migrate(ctx); err != nil {
+	if err != nil {
 		_ = db.Close()
 		return nil, err
 	}
+	s, err := New(ctx, db.SQL())
+	if err != nil {
+		_ = db.Close()
+		return nil, err
+	}
+	s.closer = db.Close
 	return s, nil
 }
 
-func (s *Store) Close() error { return s.db.Close() }
+// Close releases the database when this store opened it; it is a no-op for
+// a store built with New.
+func (s *Store) Close() error {
+	if s.closer == nil {
+		return nil
+	}
+	return s.closer()
+}
 
 // Path returns the database file path.
 func (s *Store) Path() string { return s.path }
-
-func (s *Store) migrate(ctx context.Context) error {
-	if _, err := s.db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (
-		version TEXT PRIMARY KEY, applied_at INTEGER NOT NULL)`); err != nil {
-		return fmt.Errorf("create schema_migrations: %w", err)
-	}
-	applied := map[string]bool{}
-	rows, err := s.db.QueryContext(ctx, `SELECT version FROM schema_migrations`)
-	if err != nil {
-		return fmt.Errorf("list migrations: %w", err)
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var v string
-		if err := rows.Scan(&v); err != nil {
-			return err
-		}
-		applied[v] = true
-	}
-	if err := rows.Err(); err != nil {
-		return err
-	}
-
-	names, err := fs.Glob(migrationsFS, "migrations/*.sql")
-	if err != nil {
-		return err
-	}
-	sort.Strings(names)
-	var pending []string
-	for _, n := range names {
-		if !applied[filepath.Base(n)] {
-			pending = append(pending, n)
-		}
-	}
-	if len(pending) == 0 {
-		return nil
-	}
-	if len(applied) > 0 && s.path != ":memory:" {
-		dest := fmt.Sprintf("%s.pre-%s.bak", s.path, strings.TrimSuffix(filepath.Base(pending[0]), ".sql"))
-		if err := s.Backup(ctx, dest); err != nil {
-			return fmt.Errorf("backup before migration: %w", err)
-		}
-	}
-	for _, n := range pending {
-		body, err := migrationsFS.ReadFile(n)
-		if err != nil {
-			return err
-		}
-		if err := s.tx(ctx, func(tx *sql.Tx) error {
-			if _, err := tx.ExecContext(ctx, string(body)); err != nil {
-				return err
-			}
-			_, err := tx.ExecContext(ctx, `INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)`,
-				filepath.Base(n), s.now().Unix())
-			return err
-		}); err != nil {
-			return fmt.Errorf("apply migration %s: %w", n, err)
-		}
-	}
-	return nil
-}
 
 // Backup writes a consistent copy of the database to dest (which must not exist).
 func (s *Store) Backup(ctx context.Context, dest string) error {
