@@ -8,7 +8,7 @@ desktop/dist/
 node_modules/
 
 # generated
-internal/web/static/app.css
+resources/public/static/app.css
 graphify-out/
 
 # data

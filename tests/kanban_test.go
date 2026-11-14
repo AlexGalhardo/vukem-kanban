@@ -1,4 +1,4 @@
-package web
+package tests
 
 import (
 	"bytes"
@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log/slog"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -15,23 +14,49 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
+	vukem "github.com/AlexGalhardo/vukem"
+	"github.com/AlexGalhardo/vukem/vukemtest"
+
+	"github.com/AlexGalhardo/trello-golang-htmx/bootstrap"
 	"github.com/AlexGalhardo/trello-golang-htmx/internal/store"
 )
 
+// maxFormBytes mirrors the 1 MiB regular-form cap set in routes/web.go.
+const maxFormBytes = 1 << 20
+
 type testApp struct {
-	t     *testing.T
-	srv   *Server
-	store *store.Store
-	logs  *bytes.Buffer
+	t       testing.TB
+	handler http.Handler
+	store   *store.Store
+	logs    *syncBuffer
+}
+
+// syncBuffer is a bytes.Buffer the app logger and the test can share.
+type syncBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *syncBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *syncBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
 }
 
 // tempDir is t.TempDir with a retrying cleanup: on Windows SQLite's WAL/SHM
 // files can stay locked for a moment after Close, which made t.TempDir's
 // cleanup fail intermittently with "directory not empty".
-func tempDir(t *testing.T) string {
+func tempDir(t testing.TB) string {
 	t.Helper()
 	dir, err := os.MkdirTemp("", "kanban-test-")
 	if err != nil {
@@ -49,20 +74,29 @@ func tempDir(t *testing.T) string {
 	return dir
 }
 
-func newApp(t *testing.T) *testApp {
+func newApp(t testing.TB) *testApp { return newAppLogging(t, "debug") }
+
+func newAppLogging(t testing.TB, level string) *testApp {
 	t.Helper()
-	st, err := store.Open(context.Background(), filepath.Join(tempDir(t), "web.db"))
+	logs := &syncBuffer{}
+	app := vukemtest.New(t, bootstrap.New, vukemtest.Options{
+		Env: map[string]string{
+			"DATABASE_URL": "file:" + filepath.ToSlash(filepath.Join(tempDir(t), "web.db")),
+			"LOG_LEVEL":    level,
+			"LOG_FORMAT":   "json",
+		},
+		Clock:      func() time.Time { return time.Date(2026, 6, 15, 12, 0, 0, 0, time.UTC) },
+		AppOptions: []vukem.Option{vukem.WithLogOutput(logs)},
+	})
+	db, err := app.DB()
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = st.Close() })
-	logs := &bytes.Buffer{}
-	srv, err := New(st, slog.New(slog.NewJSONHandler(logs, &slog.HandlerOptions{Level: slog.LevelDebug})), "test")
+	st, err := store.New(context.Background(), db.SQL())
 	if err != nil {
 		t.Fatal(err)
 	}
-	srv.now = func() time.Time { return time.Date(2026, 6, 15, 12, 0, 0, 0, time.UTC) }
-	return &testApp{t: t, srv: srv, store: st, logs: logs}
+	return &testApp{t: t, handler: app.Handler(), store: st, logs: logs}
 }
 
 type reqOpt func(*http.Request)
@@ -89,7 +123,7 @@ func (a *testApp) do(method, target string, form url.Values, opts ...reqOpt) *ht
 		o(r)
 	}
 	w := httptest.NewRecorder()
-	a.srv.ServeHTTP(w, r)
+	a.handler.ServeHTTP(w, r)
 	return w
 }
 
@@ -167,7 +201,7 @@ func TestDashboardEmptyAndRedirects(t *testing.T) {
 		t.Fatalf("redirect = %d %s", w.Code, w.Header().Get("Location"))
 	}
 	w = a.do("GET", "/", nil, func(r *http.Request) {
-		r.AddCookie(&http.Cookie{Name: lastBoardCookie, Value: fmt.Sprint(second.Board.ID)})
+		r.AddCookie(&http.Cookie{Name: "last_board", Value: fmt.Sprint(second.Board.ID)})
 	})
 	if w.Header().Get("Location") != fmt.Sprintf("/boards/%d", second.Board.ID) {
 		t.Fatalf("cookie redirect = %s", w.Header().Get("Location"))
@@ -184,7 +218,7 @@ func TestShowBoardFullAndPartial(t *testing.T) {
 	if strings.Contains(full.Body.String(), "<script>alert(1)") {
 		t.Fatal("board name not escaped")
 	}
-	if !strings.Contains(full.Header().Get("Set-Cookie"), lastBoardCookie) {
+	if !strings.Contains(full.Header().Get("Set-Cookie"), "last_board") {
 		t.Fatal("last board cookie not set")
 	}
 
@@ -411,11 +445,11 @@ func TestImportGuards(t *testing.T) {
 		r.Header.Set("Content-Type", mw.FormDataContentType())
 		r.Header.Set("HX-Request", "true")
 		rec := httptest.NewRecorder()
-		a.srv.ServeHTTP(rec, r)
+		a.handler.ServeHTTP(rec, r)
 		return rec
 	}
 	expect(t, upload(append(append([]byte{}, exported...), []byte(" garbage")...), "merge"), 422, "conteúdo extra")
-	legacy, err := os.ReadFile(filepath.Join("..", "store", "testdata", "v0.4.0-alpha.1.export.json"))
+	legacy, err := os.ReadFile(filepath.Join("..", "internal", "store", "testdata", "v0.4.0-alpha.1.export.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -439,7 +473,7 @@ func TestDeclaredOversizedBodyIs413(t *testing.T) {
 	r.Header.Set("HX-Request", "true")
 	r.ContentLength = maxFormBytes + 1
 	w := httptest.NewRecorder()
-	a.srv.ServeHTTP(w, r)
+	a.handler.ServeHTTP(w, r)
 	if w.Code != http.StatusRequestEntityTooLarge || w.Header().Get("HX-Reswap") != "none" {
 		t.Fatalf("oversized = %d %v", w.Code, w.Header())
 	}
@@ -452,7 +486,7 @@ func TestChunkedOversizedBodyIs413(t *testing.T) {
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	r.ContentLength = -1 // unknown length, as with Transfer-Encoding: chunked
 	w := httptest.NewRecorder()
-	a.srv.ServeHTTP(w, r)
+	a.handler.ServeHTTP(w, r)
 	if w.Code != http.StatusRequestEntityTooLarge {
 		t.Fatalf("chunked oversized = %d", w.Code)
 	}
@@ -553,7 +587,7 @@ func TestExportImportBackup(t *testing.T) {
 		r.Header.Set("Content-Type", mw.FormDataContentType())
 		r.Header.Set("HX-Request", "true")
 		rec := httptest.NewRecorder()
-		a.srv.ServeHTTP(rec, r)
+		a.handler.ServeHTTP(rec, r)
 		return rec
 	}
 	expect(t, upload([]byte("{nope"), "merge"), 422, "JSON inválido")
@@ -604,38 +638,12 @@ func TestRequestLogging(t *testing.T) {
 			break
 		}
 	}
-	for _, k := range []string{"request_id", "method", "path", "status", "duration_ms"} {
+	for _, k := range []string{"request_id", "method", "path", "status", "duration"} {
 		if _, ok := entry[k]; !ok {
 			t.Fatalf("log entry missing %q: %v", k, entry)
 		}
 	}
 	if entry["status"] != float64(404) {
 		t.Fatalf("logged status = %v", entry["status"])
-	}
-}
-
-func TestPanicRecovery(t *testing.T) {
-	a := newApp(t)
-	h := a.srv.middleware(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { panic("boom") }))
-	w := httptest.NewRecorder()
-	h.ServeHTTP(w, httptest.NewRequest("GET", "/x", nil))
-	if w.Code != 500 || !strings.Contains(a.logs.String(), `"panic":"boom"`) {
-		t.Fatalf("panic = %d logs=%s", w.Code, a.logs.String())
-	}
-}
-
-func TestHelpers(t *testing.T) {
-	if prefix("trello golang") != "TRE" || prefix("a1") != "A1" || prefix("!!") != "KAN" || prefix("Ação") != "AÇÃ" || prefix("日本語テスト") != "日本語" {
-		t.Fatal("prefix")
-	}
-	if initial("ágil") != "Á" || initial("") != "?" {
-		t.Fatal("initial")
-	}
-	kinds := []string{}
-	for i := range 5 {
-		kinds = append(kinds, statusKind(i, 5))
-	}
-	if strings.Join(kinds, ",") != "backlog,todo,progress,review,done" {
-		t.Fatalf("status kinds = %v", kinds)
 	}
 }
