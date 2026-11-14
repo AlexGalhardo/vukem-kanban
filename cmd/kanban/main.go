@@ -10,6 +10,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"os"
 	"os/signal"
@@ -67,6 +68,11 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 		flagEnv["HOST"], flagEnv["PORT"] = host, port
 	}
 	if *logLevel != "" {
+		// vukem falls back to info for an unknown level; a typo should fail.
+		var level slog.Level
+		if err := level.UnmarshalText([]byte(*logLevel)); err != nil {
+			return fmt.Errorf("invalid --log-level: %w", err)
+		}
 		flagEnv["LOG_LEVEL"] = *logLevel
 	}
 	if *dbPath != "" {
