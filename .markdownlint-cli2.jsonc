@@ -1,3 +1,10 @@
 {
-    "config": { "MD013": false, "MD060": false, "MD024": { "siblings_only": true } }
+    "config": {
+        "MD013": false,
+        "MD060": false,
+        "MD024": { "siblings_only": true },
+        // The README header (centered title and badges) follows the other vukem apps.
+        "MD033": { "allowed_elements": ["br", "sub", "sup", "div", "h1", "h3", "strong", "a", "img"] },
+        "MD041": false
+    }
 }

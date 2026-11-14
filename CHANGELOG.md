@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **docs:** Rewrite the README in the layout of the other vukem apps (badges, summary, quick start, contributing) and add `LICENSE.md` (MIT), `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md` and `SECURITY.md`
 - **docker:** Add a multi-stage non-root image (`HEALTHCHECK`, `/data` volume for SQLite) and `compose.yaml` ([82b30eb](https://github.com/AlexGalhardo/vukem-kanban/commit/82b30ebb855688df41325d8d2f1522c6de8b9513))
 - **ci:** Publish the signed image to GHCR and Docker Hub on a version tag (`X.Y.Z`; `X.Y` and `latest` on stable tags) with a smoke test before the push, cosign and attestation; the GitHub and desktop release stays local (`bun run release`) ([3a19cdc](https://github.com/AlexGalhardo/vukem-kanban/commit/3a19cdc9f26a5db3df22867ceb63f84d4d89cbe4), [781ebdd](https://github.com/AlexGalhardo/vukem-kanban/commit/781ebdd37250432c26f4a9f88a29711c810cafac))
 - **ci:** Add the validation workflow (Go, golangci-lint, race tests, web e2e, TypeScript and markdownlint) with actions pinned by SHA ([11f61f8](https://github.com/AlexGalhardo/vukem-kanban/commit/11f61f8f894ad9ac4187d76a052d60e2968e63c5))
