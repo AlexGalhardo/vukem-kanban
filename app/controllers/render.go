@@ -1,4 +1,4 @@
-package web
+package controllers
 
 import (
 	"bytes"
@@ -13,6 +13,9 @@ import (
 	"time"
 	"unicode"
 	"unicode/utf16"
+
+	"github.com/AlexGalhardo/vukem/errs"
+	"github.com/AlexGalhardo/vukem/web"
 
 	"github.com/AlexGalhardo/trello-golang-htmx/internal/markdown"
 	"github.com/AlexGalhardo/trello-golang-htmx/internal/store"
@@ -42,72 +45,63 @@ var priorityClasses = []string{
 	"text-sky-600 dark:text-sky-400",
 }
 
-var funcs = template.FuncMap{
-	"dot":  func(c string) string { return colorClasses[c][0] },
-	"chip": func(c string) string { return colorClasses[c][1] },
-	"priorityName": func(p int) string {
-		if p < 0 || p >= len(store.Priorities) {
-			return ""
-		}
-		return store.Priorities[p]
-	},
-	"priorityClass": func(p int) string {
-		if p < 0 || p >= len(priorityClasses) {
-			return ""
-		}
-		return priorityClasses[p]
-	},
-	// dict builds a map so templates can pass several values to a sub-template.
-	"dict": func(kv ...any) (map[string]any, error) {
-		if len(kv)%2 != 0 {
-			return nil, errors.New("dict: odd number of arguments")
-		}
-		m := make(map[string]any, len(kv)/2)
-		for i := 0; i < len(kv); i += 2 {
-			k, ok := kv[i].(string)
-			if !ok {
-				return nil, fmt.Errorf("dict: key %v is not a string", kv[i])
+// Funcs are the template functions of the kanban views; assets is the
+// fingerprint of the static files that busts the immutable browser cache.
+// "dict" comes from the vukem view engine.
+func Funcs(assets string) template.FuncMap {
+	return template.FuncMap{
+		"assetVersion": func() string { return assets },
+		"dot":          func(c string) string { return colorClasses[c][0] },
+		"chip":         func(c string) string { return colorClasses[c][1] },
+		"priorityName": func(p int) string {
+			if p < 0 || p >= len(store.Priorities) {
+				return ""
 			}
-			m[k] = kv[i+1]
-		}
-		return m, nil
-	},
-	"add":      func(a, b int) int { return a + b },
-	"markdown": markdown.Render,
-	"checklist": func(src string) map[string]int {
-		done, total := markdown.Checklist(src)
-		return map[string]int{"Done": done, "Total": total}
-	},
-	"initial":    initial,
-	"statusKind": statusKind,
-	// pie returns the stroke-dasharray length (of a 2πr≈15.7 circle) that
-	// fills the in-progress status icon proportionally to the column index.
-	"pie": func(i, n int) string {
-		if n < 2 {
-			return "0"
-		}
-		return strconv.FormatFloat(15.7*float64(i)/float64(n-1), 'f', 2, 64)
-	},
-	// val returns the submitted form value when re-rendering after an error,
-	// otherwise the stored fallback.
-	"val": func(form url.Values, name string, fallback any) string {
-		if form != nil {
-			if _, ok := form[name]; ok {
-				return form.Get(name)
+			return store.Priorities[p]
+		},
+		"priorityClass": func(p int) string {
+			if p < 0 || p >= len(priorityClasses) {
+				return ""
 			}
-		}
-		return fmt.Sprint(fallback)
-	},
-	"fmtDate": func(d string) string {
-		t, err := time.Parse("2006-01-02", d)
-		if err != nil {
-			return d
-		}
-		return t.Format("02/01/2006")
-	},
-	"last": func(i, n int) bool {
-		return i == n-1
-	},
+			return priorityClasses[p]
+		},
+		"add":      func(a, b int) int { return a + b },
+		"markdown": markdown.Render,
+		"checklist": func(src string) map[string]int {
+			done, total := markdown.Checklist(src)
+			return map[string]int{"Done": done, "Total": total}
+		},
+		"initial":    initial,
+		"statusKind": statusKind,
+		// pie returns the stroke-dasharray length (of a 2πr≈15.7 circle) that
+		// fills the in-progress status icon proportionally to the column index.
+		"pie": func(i, n int) string {
+			if n < 2 {
+				return "0"
+			}
+			return strconv.FormatFloat(15.7*float64(i)/float64(n-1), 'f', 2, 64)
+		},
+		// val returns the submitted form value when re-rendering after an error,
+		// otherwise the stored fallback.
+		"val": func(form url.Values, name string, fallback any) string {
+			if form != nil {
+				if _, ok := form[name]; ok {
+					return form.Get(name)
+				}
+			}
+			return fmt.Sprint(fallback)
+		},
+		"fmtDate": func(d string) string {
+			t, err := time.Parse("2006-01-02", d)
+			if err != nil {
+				return d
+			}
+			return t.Format("02/01/2006")
+		},
+		"last": func(i, n int) bool {
+			return i == n-1
+		},
+	}
 }
 
 // page is the single data type for the layout and every fragment. Fragments
@@ -180,23 +174,20 @@ func isHX(r *http.Request) bool {
 		r.Header.Get("HX-History-Restore-Request") != "true"
 }
 
-// render executes the named templates into a buffer first, so a template
+// pageView is the single view that holds every template of the app: the
+// engine needs one page to render named blocks out of, and all the blocks
+// (layout, fragments, dialogs) live in resources/views/partials.
+const pageView = "kanban"
+
+// render executes the named blocks into a buffer first, so a template
 // error becomes a clean 500 instead of a half-written page.
-func (s *Server) render(w http.ResponseWriter, status int, data any, names ...string) {
-	var buf bytes.Buffer
-	for _, name := range names {
-		if err := s.tmpl.ExecuteTemplate(&buf, name, data); err != nil {
-			s.log.Error("render", "template", name, "err", err)
-			http.Error(w, "erro ao renderizar", http.StatusInternalServerError)
-			return
-		}
+func (k *Kanban) render(c *web.Ctx, status int, data any, names ...string) error {
+	parts := make([]fragment, len(names))
+	for i, n := range names {
+		parts[i] = fragment{n, data}
 	}
-	h := w.Header()
-	h.Set("Content-Type", "text/html; charset=utf-8")
-	h.Set("Cache-Control", "no-store")
-	h.Add("Vary", "HX-Request")
-	w.WriteHeader(status)
-	_, _ = buf.WriteTo(w)
+	c.Writer().Header().Add("Vary", "HX-Request")
+	return k.renderParts(c, status, parts...)
 }
 
 type fragment struct {
@@ -205,21 +196,21 @@ type fragment struct {
 }
 
 // renderParts is render for fragments that each need their own data.
-func (s *Server) renderParts(w http.ResponseWriter, status int, parts ...fragment) {
+func (k *Kanban) renderParts(c *web.Ctx, status int, parts ...fragment) error {
 	var buf bytes.Buffer
 	for _, f := range parts {
-		if err := s.tmpl.ExecuteTemplate(&buf, f.name, f.data); err != nil {
-			s.log.Error("render", "template", f.name, "err", err)
-			http.Error(w, "erro ao renderizar", http.StatusInternalServerError)
-			return
+		if err := c.Services().Views.RenderBlock(c.Context(), &buf, pageView, f.name, f.data); err != nil {
+			k.log.Error("render", "template", f.name, "err", err)
+			http.Error(c.Writer(), "erro ao renderizar", http.StatusInternalServerError)
+			return nil
 		}
 	}
-	h := w.Header()
-	h.Set("Content-Type", "text/html; charset=utf-8")
-	h.Set("Cache-Control", "no-store")
-	w.WriteHeader(status)
-	_, _ = buf.WriteTo(w)
+	c.Writer().Header().Set("Cache-Control", "no-store")
+	return c.Blob(status, "text/html; charset=utf-8", buf.Bytes())
 }
+
+// Toast is toast for middleware outside this package.
+func Toast(w http.ResponseWriter, level, msg string) { toast(w, level, msg) }
 
 // toast asks app.js to show a notification. It uses a custom header read on
 // htmx:after:request instead of HX-Trigger: htmx dispatches HX-Trigger events
@@ -247,8 +238,9 @@ func asciiJSON(b []byte) string {
 }
 
 // fail maps store errors to HTTP statuses. htmx requests get no swap and a
-// toast (HX-Trigger) with the message.
-func (s *Server) fail(w http.ResponseWriter, r *http.Request, err error) {
+// toast with the message. It writes the response itself and returns nil.
+func (k *Kanban) fail(c *web.Ctx, err error) error {
+	w, r := c.Writer(), c.Request()
 	status, msg := http.StatusInternalServerError, "Erro interno. Veja os logs."
 	var verr store.ValidationError
 	var maxErr *http.MaxBytesError
@@ -262,22 +254,22 @@ func (s *Server) fail(w http.ResponseWriter, r *http.Request, err error) {
 	case errors.As(err, &verr):
 		// 400, not 422: 422 is reserved for HTML form re-renders that htmx swaps.
 		status, msg = http.StatusBadRequest, verr.Message()
-	case errors.As(err, &maxErr):
+	case errors.As(err, &maxErr), errs.Status(err) == http.StatusRequestEntityTooLarge:
 		status, msg = http.StatusRequestEntityTooLarge, "Conteúdo grande demais."
 	case errors.Is(err, errBadRequest):
 		status, msg = http.StatusBadRequest, "Requisição inválida."
 	default:
-		s.log.Error("request failed", "method", r.Method, "path", r.URL.Path, "err", err)
+		k.log.Error("request failed", "method", r.Method, "path", r.URL.Path, "err", err)
 	}
 	if r.Header.Get("HX-Request") == "true" {
 		// htmx 4 swaps error responses too; keep the page and show a toast.
 		w.Header().Set("HX-Reswap", "none")
 		toast(w, "error", msg)
 	} else if r.Method == http.MethodGet && (status == http.StatusNotFound || status == http.StatusBadRequest) {
-		s.notFoundStatus(w, r, status)
-		return
+		return k.notFoundStatus(c, status)
 	}
 	http.Error(w, msg, status)
+	return nil
 }
 
 var errBadRequest = errors.New("bad request")
@@ -296,8 +288,8 @@ func formInt(r *http.Request, name string) int {
 }
 
 // filterFrom reads the board filter from the query string of u.
-func (s *Server) filterFrom(q url.Values) store.Filter {
-	f := store.Filter{Query: strings.TrimSpace(q.Get("q")), Today: s.today()}
+func (k *Kanban) filterFrom(q url.Values) store.Filter {
+	f := store.Filter{Query: strings.TrimSpace(q.Get("q")), Today: k.today()}
 	f.LabelID, _ = strconv.ParseInt(q.Get("label"), 10, 64)
 	if p, err := strconv.Atoi(q.Get("priority")); err == nil && p >= 0 && p < len(store.Priorities) {
 		f.Priority, f.HasPriority = p, true
@@ -308,12 +300,12 @@ func (s *Server) filterFrom(q url.Values) store.Filter {
 
 // currentFilter recovers the filter the user is looking at from the
 // HX-Current-URL header, so mutations re-render the board as it was shown.
-func (s *Server) currentFilter(r *http.Request) store.Filter {
+func (k *Kanban) currentFilter(r *http.Request) store.Filter {
 	u, err := url.Parse(r.Header.Get("HX-Current-URL"))
 	if err != nil {
-		return store.Filter{Today: s.today()}
+		return store.Filter{Today: k.today()}
 	}
-	return s.filterFrom(u.Query())
+	return k.filterFrom(u.Query())
 }
 
-func (s *Server) today() string { return s.now().Format("2006-01-02") }
+func (k *Kanban) today() string { return k.now().Format("2006-01-02") }

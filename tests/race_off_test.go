@@ -1,5 +1,5 @@
 //go:build !race
 
-package web
+package tests
 
 const raceEnabled = false

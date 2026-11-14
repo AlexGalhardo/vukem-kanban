@@ -1,12 +1,10 @@
-package web
+package tests
 
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"net/http/httptest"
 	"net/url"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -39,16 +37,7 @@ func seedBoard(tb testing.TB, a *testApp, n int) store.BoardView {
 
 func newBenchApp(b *testing.B) *testApp {
 	b.Helper()
-	st, err := store.Open(context.Background(), filepath.Join(b.TempDir(), "bench.db"))
-	if err != nil {
-		b.Fatal(err)
-	}
-	b.Cleanup(func() { _ = st.Close() })
-	srv, err := New(st, slog.New(slog.DiscardHandler), "bench")
-	if err != nil {
-		b.Fatal(err)
-	}
-	return &testApp{srv: srv, store: st}
+	return newAppLogging(b, "error")
 }
 
 // BenchmarkRenderBoard500 is the R2 budget: a 500-card board must render
@@ -60,7 +49,7 @@ func BenchmarkRenderBoard500(b *testing.B) {
 	b.ResetTimer()
 	for b.Loop() {
 		w := httptest.NewRecorder()
-		a.srv.ServeHTTP(w, httptest.NewRequest("GET", path, nil))
+		a.handler.ServeHTTP(w, httptest.NewRequest("GET", path, nil))
 		if w.Code != 200 {
 			b.Fatal(w.Code)
 		}
@@ -81,7 +70,7 @@ func BenchmarkMoveCard500(b *testing.B) {
 		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		r.Header.Set("HX-Request", "true")
 		w := httptest.NewRecorder()
-		a.srv.ServeHTTP(w, r)
+		a.handler.ServeHTTP(w, r)
 		if w.Code != 200 {
 			b.Fatal(w.Code, w.Body.String())
 		}

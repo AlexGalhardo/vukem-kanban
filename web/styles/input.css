@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
-@source "../../internal/web/templates";
-@source "../../internal/web/render.go";
-@source "../../internal/web/static/app.js";
+@source "../../resources/views";
+@source "../../app/controllers/render.go";
+@source "../../resources/public/static/app.js";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
