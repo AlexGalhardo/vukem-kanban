@@ -1,0 +1,16 @@
+# Local run from the repository Dockerfile:
+#
+#   docker compose up -d --wait
+#
+# Open http://localhost:8080. The SQLite file persists in the "data" volume.
+name: vukem-trello
+
+services:
+  app:
+    build: .
+    ports: ["127.0.0.1:8080:8080"]
+    volumes: ["data:/data"]
+    restart: unless-stopped
+
+volumes:
+  data:
