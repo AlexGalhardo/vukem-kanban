@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `Dockerfile` (multi-stage, não-root, `HEALTHCHECK`, volume `/data` para o SQLite), `compose.yaml` e `.github/workflows/release.yml`: a cada tag `vX.Y.Z` publica a imagem no GHCR e no Docker Hub (`X.Y.Z`, `X.Y`, `latest` só em versão estável) com smoke antes do push, cosign e attestation. O release do GitHub e do desktop continua local (`bun run release`).
 - `.github/workflows/ci.yml` (Go, golangci-lint, testes com race, e2e web, TypeScript e markdownlint), com actions fixadas por SHA.
 - `docs/audit-2026-11-14.md`: auditoria de rotas, store, markdown, desktop e e2e.
 - Comandos vukem no binário: `kanban route:list`, `about`, `migrate:status`.
