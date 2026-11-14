@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Migração para o framework vukem v0.43.0: estrutura `bootstrap/`, `routes/`, `app/controllers/`, `database/migrations/`, `resources/` e `tests/`; roteamento, middleware, config, logs e migrações passam pelo vukem. As telas, rotas, headers htmx e o contrato do desktop (`--addr`, `--db`, `--log-level`, `--version`, linha `LISTENING`) continuam iguais.
+- Migrações SQL agora rodam pelo migrator do vukem (tabela `migrations`); bancos anteriores (tabela `schema_migrations`) são reconhecidos e mantêm todos os dados. A cópia `<db>.pre-<migração>.bak` antes de migrar continua.
+- CSP agora usa nonce (default do vukem) e o app envia `Cross-Origin-Opener-Policy: same-origin`; o limite de corpo (1 MiB, 20 MiB no import) usa o `BodyLimit` do framework.
+- Logs de requisição seguem o formato do vukem (`duration` em vez de `duration_ms`, mais `route`, `peer`, `ip`).
+
+### Added
+
+- `.github/workflows/ci.yml` (Go, golangci-lint, testes com race, e2e web, TypeScript e markdownlint), com actions fixadas por SHA.
+- `docs/audit-2026-11-14.md`: auditoria de rotas, store, markdown, desktop e e2e.
+- Comandos vukem no binário: `kanban route:list`, `about`, `migrate:status`.
+
+### Fixed
+
+- `TestOpensDatabaseFromV040Alpha1` falhava em clone limpo (fixture `.db` ignorada pelo git); o banco legado agora é gerado no próprio teste.
+- `go.mod` tidy (`modernc.org/sqlite` não é mais `// indirect`).
+
 ## [0.9.0-beta.1] - 2026-10-05
 
 ### Added

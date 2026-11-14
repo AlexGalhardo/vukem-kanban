@@ -2,7 +2,7 @@
 
 Kanban single-user no estilo Linear para gerenciar o desenvolvimento de projetos de software. Abre direto no quadro, funciona offline e roda como app web ou desktop (Windows).
 
-- **Backend:** Go 1.27, só stdlib (`net/http`, `html/template`, `log/slog`, `embed`) + `modernc.org/sqlite` (sem CGO).
+- **Backend:** Go 1.27 sobre o framework [vukem](https://github.com/AlexGalhardo/vukem) (`net/http`, `html/template`, `embed`) com SQLite (`modernc.org/sqlite`, sem CGO).
 - **Frontend:** htmx 4.0.0 (vendorizado), Tailwind CSS v4, ~400 linhas de JS para drag-and-drop, atalhos e command palette.
 - **Desktop:** Electron sobe o binário Go como sidecar em porta aleatória.
 
@@ -37,6 +37,8 @@ Binário único (web):
 bun run build
 ./bin/kanban --addr 127.0.0.1:8080 --db kanban.db
 ```
+
+O binário é um app vukem: `HOST`, `PORT`, `DATABASE_URL` e `LOG_LEVEL` também configuram o servidor, e `./bin/kanban route:list`, `about` e `migrate:status` funcionam como em qualquer app vukem.
 
 Desktop:
 
