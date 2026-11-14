@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,6 +11,10 @@ import (
 	"reflect"
 	"testing"
 	"time"
+
+	_ "modernc.org/sqlite" // the legacy fixture is written with a plain connection
+
+	"github.com/AlexGalhardo/trello-golang-htmx/database/migrations"
 )
 
 // tempDir is t.TempDir with a retrying cleanup: on Windows SQLite's WAL/SHM
@@ -113,15 +118,11 @@ func TestPendingMigrationBacksUpExistingDatabase(t *testing.T) {
 	if _, err := s.CreateBoard(context.Background(), BoardInput{Name: "Keep me"}); err != nil {
 		t.Fatal(err)
 	}
-	// Pretend a newer migration exists by forgetting that 0001 was applied
-	// after creating a sentinel version, so 0001 is "pending" on reopen.
-	if _, err := s.db.Exec(`INSERT INTO schema_migrations VALUES ('0000_sentinel.sql', 0)`); err != nil {
+	// Forget that 0002 ran, so it is pending again on reopen.
+	if _, err := s.db.Exec(`DELETE FROM migrations WHERE id = '0002_card_revision'`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.db.Exec(`DELETE FROM schema_migrations WHERE version = '0001_init.sql'`); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := s.db.Exec(`DROP TABLE card_labels; DROP TABLE labels; DROP TABLE cards; DROP TABLE columns; DROP TABLE boards`); err != nil {
+	if _, err := s.db.Exec(`ALTER TABLE cards DROP COLUMN revision`); err != nil {
 		t.Fatal(err)
 	}
 	_ = s.Close()
@@ -131,8 +132,20 @@ func TestPendingMigrationBacksUpExistingDatabase(t *testing.T) {
 		t.Fatalf("reopen: %v", err)
 	}
 	_ = s.Close()
-	if _, err := os.Stat(path + ".pre-0001_init.bak"); err != nil {
+	if _, err := os.Stat(path + ".pre-0002_card_revision.bak"); err != nil {
 		t.Fatalf("backup not written: %v", err)
+	}
+}
+
+func TestNewDatabaseIsNotBackedUp(t *testing.T) {
+	path := filepath.Join(tempDir(t), "fresh.db")
+	s, err := Open(context.Background(), path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = s.Close()
+	if matches, _ := filepath.Glob(path + ".pre-*"); len(matches) != 0 {
+		t.Fatalf("fresh database wrote backups: %v", matches)
 	}
 }
 
@@ -609,26 +622,62 @@ func TestNotFoundPaths(t *testing.T) {
 	}
 }
 
+// writeLegacyDatabase builds a database the way the v0.4.0-alpha.1 binary
+// left it: schema 0001 only, versions tracked in its own schema_migrations
+// table. The file is generated because *.db is gitignored, so a checked-in
+// binary fixture never reached a clean clone.
+func writeLegacyDatabase(t *testing.T, path string, snap Snapshot) {
+	t.Helper()
+	db, err := sql.Open("sqlite", "file:"+filepath.ToSlash(path)+"?_pragma=foreign_keys(1)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = db.Close() }()
+	ddl, err := migrations.Source("0001_init")
+	if err != nil {
+		t.Fatal(err)
+	}
+	exec := func(q string, args ...any) {
+		t.Helper()
+		if _, err := db.Exec(q, args...); err != nil {
+			t.Fatalf("legacy setup %q: %v", q, err)
+		}
+	}
+	exec(ddl)
+	exec(`CREATE TABLE schema_migrations (version TEXT PRIMARY KEY, applied_at INTEGER NOT NULL)`)
+	exec(`INSERT INTO schema_migrations VALUES ('0001_init.sql', 1)`)
+	var colID, cardID, labelID int64
+	for bi, b := range snap.Boards {
+		exec(`INSERT INTO boards (id, name, description, color, created_at, updated_at) VALUES (?, ?, ?, ?, 1, 1)`,
+			bi+1, b.Name, b.Description, b.Color)
+		labelIDs := make([]int64, len(b.Labels))
+		for i, l := range b.Labels {
+			labelID++
+			labelIDs[i] = labelID
+			exec(`INSERT INTO labels (id, board_id, name, color) VALUES (?, ?, ?, ?)`, labelID, bi+1, l.Name, l.Color)
+		}
+		for ci, c := range b.Columns {
+			colID++
+			exec(`INSERT INTO columns (id, board_id, name, position, wip_limit, created_at) VALUES (?, ?, ?, ?, ?, 1)`,
+				colID, bi+1, c.Name, ci, c.WIPLimit)
+			for ki, card := range c.Cards {
+				cardID++
+				exec(`INSERT INTO cards (id, column_id, title, description, priority, due_date, position, created_at, updated_at)
+					VALUES (?, ?, ?, ?, ?, ?, ?, 1, 1)`, cardID, colID, card.Title, card.Description, card.Priority, card.DueDate, ki)
+				for _, li := range card.Labels {
+					exec(`INSERT INTO card_labels (card_id, label_id) VALUES (?, ?)`, cardID, labelIDs[li])
+				}
+			}
+		}
+	}
+}
+
 // TestOpensDatabaseFromV040Alpha1 guards data compatibility: a database
 // written by the released v0.4.0-alpha.1 binary must open, migrate and keep
 // every record. Exports from that version (labels used "Name"/"Color" keys)
 // must still import.
 func TestOpensDatabaseFromV040Alpha1(t *testing.T) {
 	ctx := context.Background()
-	src, err := os.ReadFile(filepath.Join("testdata", "v0.4.0-alpha.1.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	path := filepath.Join(tempDir(t), "legacy.db")
-	if err := os.WriteFile(path, src, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	s, err := Open(ctx, path)
-	if err != nil {
-		t.Fatalf("open legacy db: %v", err)
-	}
-	defer func() { _ = s.Close() }()
-
 	raw, err := os.ReadFile(filepath.Join("testdata", "v0.4.0-alpha.1.export.json"))
 	if err != nil {
 		t.Fatal(err)
@@ -637,6 +686,14 @@ func TestOpensDatabaseFromV040Alpha1(t *testing.T) {
 	if err := json.Unmarshal(raw, &want); err != nil {
 		t.Fatal(err)
 	}
+	path := filepath.Join(tempDir(t), "legacy.db")
+	writeLegacyDatabase(t, path, want)
+	s, err := Open(ctx, path)
+	if err != nil {
+		t.Fatalf("open legacy db: %v", err)
+	}
+	defer func() { _ = s.Close() }()
+
 	got, err := s.Export(ctx)
 	if err != nil {
 		t.Fatal(err)
