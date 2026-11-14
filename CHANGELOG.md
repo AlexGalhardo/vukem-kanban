@@ -27,6 +27,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **cmd:** Reject an invalid `--log-level` instead of falling back to info ([7233648](https://github.com/AlexGalhardo/vukem-kanban/commit/7233648765e995af9caf27c68d8011c6c7e44b34))
 
+### Security
+
+- **deps:** Update Electron 44.5.1 → 44.11.3 (GHSA-jr5w-w6x2-84p9, compromised eMudhra intermediate certificates) and the transitive `undici` and `fast-uri` within their ranges; `bun audit` has no high or critical finding left
+
 ## [0.9.0-beta.1] - 2026-10-05
 
 ### Added
