@@ -5,10 +5,10 @@ package bootstrap
 import (
 	vukem "github.com/AlexGalhardo/vukem"
 
-	"github.com/AlexGalhardo/trello-golang-htmx/app/controllers"
-	"github.com/AlexGalhardo/trello-golang-htmx/database/migrations"
-	"github.com/AlexGalhardo/trello-golang-htmx/resources"
-	"github.com/AlexGalhardo/trello-golang-htmx/routes"
+	"github.com/AlexGalhardo/vukem-kanban/app/controllers"
+	"github.com/AlexGalhardo/vukem-kanban/database/migrations"
+	"github.com/AlexGalhardo/vukem-kanban/resources"
+	"github.com/AlexGalhardo/vukem-kanban/routes"
 )
 
 // New builds the application; cmd/kanban and the tests call it.

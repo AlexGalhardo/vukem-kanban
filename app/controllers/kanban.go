@@ -17,7 +17,7 @@ import (
 
 	"github.com/AlexGalhardo/vukem/web"
 
-	"github.com/AlexGalhardo/trello-golang-htmx/internal/store"
+	"github.com/AlexGalhardo/vukem-kanban/internal/store"
 )
 
 const lastBoardCookie = "last_board"

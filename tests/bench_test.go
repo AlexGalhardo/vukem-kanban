@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/AlexGalhardo/trello-golang-htmx/internal/store"
+	"github.com/AlexGalhardo/vukem-kanban/internal/store"
 )
 
 // seedBoard creates a board with n cards spread over the default columns.

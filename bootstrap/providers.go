@@ -5,7 +5,7 @@ import (
 
 	vukem "github.com/AlexGalhardo/vukem"
 
-	"github.com/AlexGalhardo/trello-golang-htmx/database/migrations"
+	"github.com/AlexGalhardo/vukem-kanban/database/migrations"
 )
 
 // Providers lists the application providers in registration order.
