@@ -1,0 +1,17 @@
+.git/
+.github/
+.claude/
+node_modules/
+bin/
+dist/
+desktop/
+e2e/
+test-results/
+playwright-report/
+graphify-out/
+*.db
+*.db-shm
+*.db-wal
+.env
+.env.*
+resources/public/static/app.css
