@@ -3,7 +3,7 @@
 #   docker compose up -d --wait
 #
 # Open http://localhost:8080. The SQLite file persists in the "data" volume.
-name: vukem-trello
+name: vukem-kanban
 
 services:
   app:

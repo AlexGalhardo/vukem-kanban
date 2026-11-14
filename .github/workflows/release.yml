@@ -18,8 +18,8 @@ jobs:
     name: Image to GHCR and Docker Hub, signed
     runs-on: ubuntu-latest
     env:
-      GHCR_IMAGE: ghcr.io/alexgalhardo/vukem-trello
-      HUB_IMAGE: docker.io/${{ vars.DOCKERHUB_USERNAME }}/vukem-trello
+      GHCR_IMAGE: ghcr.io/alexgalhardo/vukem-kanban
+      HUB_IMAGE: docker.io/${{ vars.DOCKERHUB_USERNAME }}/vukem-kanban
       TAG: ${{ github.ref_name }}
     permissions:
       contents: read
@@ -68,7 +68,7 @@ jobs:
         with:
           context: .
           load: true
-          tags: smoke:vukem-trello
+          tags: smoke:vukem-kanban
           build-args: VERSION=${{ steps.meta.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -76,8 +76,8 @@ jobs:
         env:
           VERSION: ${{ steps.meta.outputs.version }}
         run: |
-          test "$(docker run --rm smoke:vukem-trello --version)" = "$VERSION"
-          docker run -d --name smoke -p 127.0.0.1:8080:8080 smoke:vukem-trello
+          test "$(docker run --rm smoke:vukem-kanban --version)" = "$VERSION"
+          docker run -d --name smoke -p 127.0.0.1:8080:8080 smoke:vukem-kanban
           for path in /healthz /; do
             code=000
             for _ in $(seq 1 30); do
@@ -115,11 +115,11 @@ jobs:
           cosign sign --yes "$HUB_IMAGE@$DIGEST"
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
-          subject-name: ghcr.io/alexgalhardo/vukem-trello
+          subject-name: ghcr.io/alexgalhardo/vukem-kanban
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
-          subject-name: docker.io/${{ vars.DOCKERHUB_USERNAME }}/vukem-trello
+          subject-name: docker.io/${{ vars.DOCKERHUB_USERNAME }}/vukem-kanban
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
