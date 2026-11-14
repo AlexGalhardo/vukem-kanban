@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "trello-golang-htmx",
+      "name": "vukem-kanban",
       "devDependencies": {
         "@playwright/test": "1.63.0",
         "@tailwindcss/cli": "4.3.3",

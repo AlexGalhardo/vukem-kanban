@@ -14,7 +14,7 @@ import {
 	updateLinks,
 } from "./release.ts";
 
-const repo = "https://github.com/AlexGalhardo/trello-golang-htmx";
+const repo = "https://github.com/AlexGalhardo/vukem-kanban";
 
 describe("semver", () => {
 	test.each(["0.0.1", "1.2.3", "10.0.0-alpha.0", "1.0.0-beta.2", "1.0.0-rc.11"])("parses %s", (v) => {

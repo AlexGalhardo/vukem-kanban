@@ -21,7 +21,7 @@
 - Escopos sugeridos: `store`, `web`, `ui`, `desktop`, `e2e`, `release`, `deps`.
 - Exemplo: `feat(web): create card inline from column footer`.
 
-- Remote: `origin` = `https://github.com/AlexGalhardo/trello-golang-htmx.git`. Faça push para `origin/main` ao fim de cada grupo de microtarefas concluído, para salvar o trabalho.
+- Remote: `origin` = `https://github.com/AlexGalhardo/vukem-kanban.git`. Faça push para `origin/main` ao fim de cada grupo de microtarefas concluído, para salvar o trabalho.
 
 ## Worktrees e paralelização
 
@@ -40,10 +40,10 @@ Quando não usar:
 
 Como:
 
-1. Crie uma worktree por tarefa: `git worktree add ../trello-golang-htmx-<slug> -b feat/<slug>` (ou ferramenta `EnterWorktree` / `Agent` com `isolation: "worktree"` no Claude Code).
+1. Crie uma worktree por tarefa: `git worktree add ../vukem-kanban-<slug> -b feat/<slug>` (ou ferramenta `EnterWorktree` / `Agent` com `isolation: "worktree"` no Claude Code).
 2. Cada worktree roda seus próprios `bun install`, lint e testes. Use porta `0` e DB temporário para não colidir com outras worktrees.
 3. Ao concluir: lint + testes verdes na worktree, commit convencional, merge na `main` (preferir `--ff-only` após rebase), rodar a suíte focada de novo na `main`.
-4. Remova: `git worktree remove ../trello-golang-htmx-<slug>` e `git branch -d feat/<slug>`.
+4. Remova: `git worktree remove ../vukem-kanban-<slug>` e `git branch -d feat/<slug>`.
 5. Marque `[x]` no `PLAN.md` e atualize `CHANGELOG.md` somente na `main`, após o merge (evita conflito nesses arquivos).
 
 ### Worktree de QA

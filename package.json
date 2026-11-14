@@ -1,5 +1,5 @@
 {
-	"name": "trello-golang-htmx",
+	"name": "vukem-kanban",
 	"productName": "Kanban",
 	"version": "0.9.0-beta.1",
 	"description": "Kanban estilo Linear para gerenciar projetos de software (Go + HTMX + SQLite + Electron)",

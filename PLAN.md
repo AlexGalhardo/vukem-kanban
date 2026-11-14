@@ -107,7 +107,7 @@ Objetivo: repositório, ferramentas, esqueleto executável em todas as camadas (
 
 ### E2. Repositório e convenções
 
-- [x] `git init`, branch `main`, remote `origin` = `https://github.com/AlexGalhardo/trello-golang-htmx.git`
+- [x] `git init`, branch `main`, remote `origin` = `https://github.com/AlexGalhardo/vukem-kanban.git`
 - [x] `.editorconfig`: `indent_style = tab`, `indent_size = 4`, `tab_width = 4`, `end_of_line = lf`, `charset = utf-8`, `insert_final_newline = true`; exceção `*.{yml,yaml,md}` com espaços (YAML proíbe tab)
 - [x] `.gitattributes` com `* text=auto eol=lf`
 - [x] `.gitignore` (bin/, dist/, node_modules/, *.db, `internal/web/static/app.css`, graphify-out/, test-results/, playwright-report/)
@@ -120,7 +120,7 @@ Objetivo: repositório, ferramentas, esqueleto executável em todas as camadas (
 
 ### E3. Toolchain Go
 
-- [x] `go mod init github.com/AlexGalhardo/trello-golang-htmx` com `go 1.27.0`
+- [x] `go mod init github.com/AlexGalhardo/vukem-kanban` com `go 1.27.0`
 - [x] `.golangci.yml` (v2): linters `errcheck`, `govet`, `staticcheck`, `unused`, `ineffassign`, `gosec`, `revive`, `bodyclose`, `sqlclosecheck`, `rowserrcheck`, `errorlint`, `misspell`; formatters `gofumpt`, `goimports`
 - [x] `cmd/kanban/main.go` mínimo: flags `--addr`, `--db`, `--version`; `GET /healthz` → `200 ok`; imprime `LISTENING <addr>` no stdout; shutdown gracioso com `signal.NotifyContext`
 - [x] Teste unitário de `/healthz` com `httptest`

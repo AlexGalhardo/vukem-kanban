@@ -57,7 +57,7 @@ bun run desktop      # modo dev
 bun run dist         # instalador NSIS + portable em dist/desktop/
 ```
 
-Downloads prontos (binários para Windows/Linux/macOS e instalador Windows) ficam nas [releases](https://github.com/AlexGalhardo/trello-golang-htmx/releases).
+Downloads prontos (binários para Windows/Linux/macOS e instalador Windows) ficam nas [releases](https://github.com/AlexGalhardo/vukem-kanban/releases).
 
 ## Qualidade
 
