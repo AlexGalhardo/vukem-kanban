@@ -9,7 +9,7 @@ Aplicação web/desktop simplificada no estilo Trello/Linear para gerenciar o de
 A raiz (`/`) abre direto no dashboard: barra lateral com os projetos (boards) e o quadro kanban do projeto selecionado.
 Sem autenticação, sem páginas extras. Uso single-user, local.
 
-**Fora de escopo (não implementar):** autenticação/usuários, multi-tenant, páginas de marketing/landing, sincronização em nuvem, GitHub Actions.
+**Fora de escopo (não implementar):** autenticação/usuários, multi-tenant, páginas de marketing/landing, sincronização em nuvem, publicação por GitHub Actions (o CI de validação existe desde a migração para o vukem).
 
 ## 2. Stack e versões fixadas
 
@@ -33,14 +33,14 @@ Versões estáveis verificadas em 2026-10-05. Fixar exatamente (sem `^`/`~`).
 
 ## 3. Decisões de arquitetura
 
-- **D1 — Stdlib primeiro (didático).** Única dependência Go de runtime: driver SQLite. Roteamento, templates, logs, testes, embed e migrações com stdlib.
+- **D1 — Stdlib primeiro (didático), substituída.** Até a v0.9.0-beta.1 a única dependência Go era o driver SQLite. A partir da migração para o vukem (`docs/audit-2026-11-14.md`), roteamento, middleware, config, migrações e testes de app vêm do framework.
 - **D2 — `modernc.org/sqlite` em vez de `mattn/go-sqlite3`.** Sem CGO: cross-compile trivial para Windows/Linux/macOS e build do Electron sem toolchain C.
 - **D3 — Binário único.** Templates, CSS gerado e `htmx.min.js` embutidos via `go:embed`. O binário roda sozinho como app web.
 - **D4 — Electron como casca fina.** O processo main do Electron sobe o binário Go como sidecar (`--addr 127.0.0.1:0 --db <userData>/kanban.db`), lê a porta impressa no stdout (`LISTENING <addr>`) e abre `BrowserWindow` nessa URL. Ao fechar a janela, encerra o sidecar.
 - **D5 — htmx 4 server-driven.** Handlers retornam fragmentos HTML. Requisição com `HX-Request` e `HX-Request-Type: partial` recebe parcial; sem eles (ou `full`, usado por `hx-select` e restauração de histórico), página completa. Erros de htmx voltam com `HX-Reswap: none` + toast via `HX-Trigger` (JSON escapado em ASCII).
 - **D6 — Drag-and-drop nativo.** HTML5 DnD + ~50 linhas de JS que chamam `htmx.ajax('POST', '/cards/{id}/move', ...)`. Sem SortableJS. Reordenação por `position INTEGER` reindexada dentro de transação.
 - **D7 — Bun como task runner.** `package.json` concentra scripts (`dev`, `build`, `test`, `lint`, `e2e`, `release`). Scripts complexos em `scripts/*.ts` rodados com `bun`. Evita `make` (ausente no Windows).
-- **D8 — Release local.** `scripts/release.ts` gera builds, extrai a seção da versão do `CHANGELOG.md` e publica com `gh release create`. Nenhum workflow em `.github/workflows/`.
+- **D8 — Release local.** `scripts/release.ts` gera builds, extrai a seção da versão do `CHANGELOG.md` e publica com `gh release create`. O único workflow (`ci.yml`) valida, não publica.
 - **D9 — Sem auth; CSRF via stdlib.** App local single-user; servidor escuta só em `127.0.0.1`. `http.CrossOriginProtection` (Go 1.25+) barra POST/PUT/DELETE cross-site de páginas maliciosas abertas no navegador. Validação de entrada e escaping (`html/template`) continuam obrigatórios.
 
 ## 4. Estrutura de diretórios alvo
@@ -166,7 +166,7 @@ Objetivo: repositório, ferramentas, esqueleto executável em todas as camadas (
 - [x] Sufixo `-rc.N`, `-beta.N`, `-alpha.N` → `gh release create --prerelease`
 - [x] `--dry-run` que faz tudo menos push/publicação
 - [ ] Release `v0.0.1` publicada
-- **Asserts:** página da release mostra notas iguais à seção do CHANGELOG; artefatos baixáveis; `bin/kanban --version` imprime `0.0.1`; `.github/workflows/` não existe.
+- **Asserts:** página da release mostra notas iguais à seção do CHANGELOG; artefatos baixáveis; `bin/kanban --version` imprime `0.0.1`; a release não é publicada por workflow.
 
 ### Checkpoint ESTRUTURA
 

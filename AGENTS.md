@@ -14,17 +14,18 @@ Kanban single-user estilo Trello/Linear para gerenciar projetos de software. Go 
 
 ## Regras essenciais
 
-- Go: stdlib primeiro. Única dependência Go de runtime: `modernc.org/sqlite`. Dependência nova só com aprovação.
+- Go: app vukem (`github.com/AlexGalhardo/vukem`, estrutura `bootstrap/`, `routes/`, `app/controllers/`, `database/migrations/`, `resources/`). Fora do framework, stdlib primeiro; dependência nova só com aprovação.
 - Versões exatas e estáveis (sem `^`, `latest`, `rc`, `beta`).
 - Lint/format Go: `golangci-lint` v2 (`gofumpt` + `goimports`). Indentação: tab, largura 4 (`.editorconfig`).
 - Conventional Commits em inglês; SemVer a partir de `0.0.1`; `CHANGELOG.md` no formato Keep a Changelog.
-- Release local com `gh`; nunca criar `.github/workflows/`.
+- Release local com `gh`. CI em `.github/workflows/ci.yml` (actions fixadas por SHA); confira `gh run list` após o push.
 - Paralelize tarefas independentes com git worktrees (ver `docs/workflow.md`).
 - Faça push para `origin/main` ao concluir cada grupo de microtarefas.
 - htmx 4.0.0: herança só com `:inherited`; erros de htmx respondem com `HX-Reswap: none` + header `X-Toast` (JSON ASCII); nunca coloque um elemento `hx-swap-oob` dentro do conteúdo principal da mesma resposta. Detalhes em `docs/architecture.md`.
 - Descrições de card são Markdown renderizado por `internal/markdown` (stdlib, escapa tudo); nunca use `template.HTML` com texto do usuário fora dele.
 - Atualize os checklists do `PLAN.md` antes de cada commit/push.
 - Rode uma worktree de QA adversarial em paralelo às fases (ver `docs/workflow.md`) e transforme bugs em testes de regressão.
+- Rotas novas: registre em `app/controllers/routes.go`; handlers de escrita passam por `k.form(...)`. Views são blocos de `resources/views/partials/` renderizados pela página-host `kanban`. Migrações: SQL em `database/migrations/sql/` + `registry.go`.
 - Validação: `bun run lint`, `bun run test`, `bun run test:perf`, `bun run smoke`, `E2E_PORT=<porta livre> bun run e2e` e `bun run e2e:desktop`.
 - Ao mudar convenção, comando ou arquitetura: atualize `docs/`, este arquivo e `CLAUDE.md`.
 - Após mudanças de código: `graphify update .`.

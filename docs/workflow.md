@@ -34,7 +34,7 @@ Quando usar:
 
 Quando não usar:
 
-- Migrações de banco (`internal/store/migrations/`): sequenciais, sempre na árvore principal, uma por vez.
+- Migrações de banco (`database/migrations/sql/`): sequenciais, sempre na árvore principal, uma por vez.
 - Tarefas que mudam contrato compartilhado (rotas, schema, `layout.html`, `package.json`): defina o contrato primeiro na `main`, depois paralelize.
 - Tarefas XS/S que terminam mais rápido do que o custo de criar e mesclar a worktree.
 
@@ -69,9 +69,9 @@ Em paralelo ao desenvolvimento, mantenha uma worktree de QA que simula um testad
 - Entradas objetivas, voltadas ao usuário, em português.
 - Na release, `[Unreleased]` vira `[x.y.z] - AAAA-MM-DD` e links de comparação no rodapé são atualizados.
 
-## Release local (sem GitHub Actions)
+## Release local
 
-GitHub Actions fica desativado (billing). Nunca criar `.github/workflows/`.
+O release é publicado localmente com `gh`; o workflow `.github/workflows/ci.yml` só valida (não publica artefatos).
 
 `bun run release <versão> [--dry-run] [--skip-desktop]` (`scripts/release.ts`; aceita `X.Y.Z` e `X.Y.Z-alpha.N|beta.N|rc.N`):
 

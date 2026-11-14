@@ -5,7 +5,7 @@ Pirâmide: muitos unitários e de integração em Go; poucos E2E cobrindo fluxos
 | Camada | Ferramenta | Onde | Comando |
 | --- | --- | --- | --- |
 | Unitário | `testing` | `*_test.go` ao lado do código | `bun run test` |
-| Integração | `testing` + `httptest` + SQLite real em `t.TempDir()` | `internal/store`, `internal/web` | `bun run test` |
+| Integração | `testing` + `httptest` + SQLite real em `t.TempDir()` | `internal/store`, `tests/` (app inteiro via `vukemtest`) | `bun run test` |
 | Smoke | `scripts/smoke.ts` | binário compilado | `bun run smoke` |
 | E2E web | `@playwright/test` | `e2e/web/` | `bun run e2e` |
 | E2E desktop | Playwright `_electron` | `e2e/desktop/` | `bun run e2e:desktop` |
@@ -38,7 +38,7 @@ Testes dos scripts TypeScript (`scripts/*.test.ts`) rodam com `bun run test:scri
 ## Metas de cobertura (checkpoint BETA)
 
 - `internal/store` ≥ 80%.
-- `internal/web` ≥ 70%.
+- `app/controllers` (medido com os testes de `tests/` e `-coverpkg=./app/...`) ≥ 70%.
 - Medir: `go test -cover ./internal/...`.
 
 ## Primeira execução em máquina limpa

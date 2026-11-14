@@ -10,7 +10,7 @@ Fixar versões exatas (sem `^`/`~`), sempre a última estável. Nunca `latest`, 
 | `modernc.org/sqlite` | v1.60.1 | driver SQLite pure Go |
 | `golangci-lint` | 2.14.0 | lint + format Go |
 | Bun | 1.4.2 | gerenciador de pacotes JS e task runner |
-| `htmx.org` | 4.0.0 | vendorizado em `internal/web/static/htmx.min.js` |
+| `htmx.org` | 4.0.0 | vendorizado em `resources/public/static/htmx.min.js` |
 | `tailwindcss` / `@tailwindcss/cli` | 4.3.3 | CSS |
 | `electron` | 44.5.1 | desktop |
 | `electron-builder` | 26.15.3 | instaladores |
@@ -43,7 +43,7 @@ Todos via `bun run <script>` (definidos em `package.json`).
 
 Desktop: após `bun install`, se `node_modules/electron/dist` não existir rode `node node_modules/electron/install.js`. Para isolar dados num teste manual: `KANBAN_DATA_DIR=<pasta> bun run desktop`.
 
-Validação focada durante desenvolvimento: `go test ./internal/store/ -run TestNome`, `golangci-lint run ./internal/web/...`.
+Validação focada durante desenvolvimento: `go test ./internal/store/ -run TestNome`, `golangci-lint run ./app/...`.
 
 ## Go: lint e formatação
 
@@ -57,7 +57,7 @@ Validação focada durante desenvolvimento: `go test ./internal/store/ -run Test
 ## Tailwind v4
 
 - Configuração CSS-first em `web/styles/input.css` (`@import "tailwindcss"`, `@source`, `@theme`). Sem `tailwind.config.js`.
-- Saída: `internal/web/static/app.css` (gerado, no `.gitignore`, embutido no binário). Rode `bun run build` antes de `go build`.
+- Saída: `resources/public/static/app.css` (gerado, no `.gitignore`, embutido no binário). Rode `bun run build` antes de `go build`.
 
 ## HTMX
 
