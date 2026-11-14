@@ -40,6 +40,16 @@ bun run build
 
 O binário é um app vukem: `HOST`, `PORT`, `DATABASE_URL` e `LOG_LEVEL` também configuram o servidor, e `./bin/kanban route:list`, `about` e `migrate:status` funcionam como em qualquer app vukem.
 
+Imagem Docker (web, SQLite no volume `/data`):
+
+```bash
+docker compose up -d --wait          # http://127.0.0.1:8080
+curl -fsS http://127.0.0.1:8080/healthz
+docker compose down -v               # -v apaga o volume com o banco
+```
+
+A cada tag `vX.Y.Z` o workflow `release.yml` publica `ghcr.io/alexgalhardo/vukem-trello` e `alexgalhardo/vukem-trello` (Docker Hub) com as tags `X.Y.Z`, `X.Y` e `latest` (só em versão estável), depois de um smoke (`--version`, `/healthz`, `/`), assinada com cosign e com attestation de proveniência.
+
 Desktop:
 
 ```bash
