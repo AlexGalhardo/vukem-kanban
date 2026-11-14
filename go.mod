@@ -1,4 +1,4 @@
-module github.com/AlexGalhardo/trello-golang-htmx
+module github.com/AlexGalhardo/vukem-kanban
 
 go 1.27.4
 

@@ -14,7 +14,7 @@ import (
 
 	_ "modernc.org/sqlite" // the legacy fixture is written with a plain connection
 
-	"github.com/AlexGalhardo/trello-golang-htmx/database/migrations"
+	"github.com/AlexGalhardo/vukem-kanban/database/migrations"
 )
 
 // tempDir is t.TempDir with a retrying cleanup: on Windows SQLite's WAL/SHM

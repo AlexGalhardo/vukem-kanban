@@ -17,8 +17,8 @@ import (
 	"github.com/AlexGalhardo/vukem/errs"
 	"github.com/AlexGalhardo/vukem/web"
 
-	"github.com/AlexGalhardo/trello-golang-htmx/internal/markdown"
-	"github.com/AlexGalhardo/trello-golang-htmx/internal/store"
+	"github.com/AlexGalhardo/vukem-kanban/internal/markdown"
+	"github.com/AlexGalhardo/vukem-kanban/internal/store"
 )
 
 // colorClasses maps the closed store.Colors palette to literal Tailwind

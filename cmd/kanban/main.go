@@ -20,7 +20,7 @@ import (
 
 	vukem "github.com/AlexGalhardo/vukem"
 
-	"github.com/AlexGalhardo/trello-golang-htmx/bootstrap"
+	"github.com/AlexGalhardo/vukem-kanban/bootstrap"
 )
 
 // version is set at build time with -ldflags "-X main.version=...".

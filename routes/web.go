@@ -7,9 +7,9 @@ import (
 	"github.com/AlexGalhardo/vukem/middleware"
 	"github.com/AlexGalhardo/vukem/router"
 
-	"github.com/AlexGalhardo/trello-golang-htmx/app/controllers"
-	"github.com/AlexGalhardo/trello-golang-htmx/internal/store"
-	"github.com/AlexGalhardo/trello-golang-htmx/resources"
+	"github.com/AlexGalhardo/vukem-kanban/app/controllers"
+	"github.com/AlexGalhardo/vukem-kanban/internal/store"
+	"github.com/AlexGalhardo/vukem-kanban/resources"
 )
 
 const maxFormBytes = 1 << 20 // 1 MiB for regular forms

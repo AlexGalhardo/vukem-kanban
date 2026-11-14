@@ -21,8 +21,8 @@ import (
 	vukem "github.com/AlexGalhardo/vukem"
 	"github.com/AlexGalhardo/vukem/vukemtest"
 
-	"github.com/AlexGalhardo/trello-golang-htmx/bootstrap"
-	"github.com/AlexGalhardo/trello-golang-htmx/internal/store"
+	"github.com/AlexGalhardo/vukem-kanban/bootstrap"
+	"github.com/AlexGalhardo/vukem-kanban/internal/store"
 )
 
 // maxFormBytes mirrors the 1 MiB regular-form cap set in routes/web.go.

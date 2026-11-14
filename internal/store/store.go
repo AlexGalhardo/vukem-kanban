@@ -15,7 +15,7 @@ import (
 	"github.com/AlexGalhardo/vukem/database"
 	"github.com/AlexGalhardo/vukem/schema"
 
-	"github.com/AlexGalhardo/trello-golang-htmx/database/migrations"
+	"github.com/AlexGalhardo/vukem-kanban/database/migrations"
 )
 
 var (
