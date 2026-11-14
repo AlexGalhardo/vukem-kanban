@@ -1,0 +1,116 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+
+# A pull request groups by ref, so pushing again cancels the run its commit
+# superseded. A push to main or a tag groups by commit instead, so it is
+# alone in its group and nothing can cancel or queue behind it: the branch
+# that records what shipped has to say whether each commit passed.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  conventions:
+    name: Conventions (SemVer, tag matches package.json and VERSION)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: SemVer in package.json, VERSION in sync, and a tag matches
+        run: |
+          root=$(jq -r .version package.json)
+          echo "package.json=$root VERSION=$(cat VERSION)"
+          [[ "$root" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta|rc)\.[0-9]+)?$ ]]
+          [ "$(tr -d '\r\n' < VERSION)" = "$root" ]
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then [ "${GITHUB_REF#refs/tags/v}" = "$root" ]; fi
+
+  go:
+    name: Go (build, vet, golangci-lint, race tests, govulncheck)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: go build ./...
+      - run: go vet ./...
+      - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+        with:
+          version: v2.15.0
+      - run: go test -race -count=1 ./...
+      - run: go test -run TestPerformanceBudgets -count=1 ./tests/
+      - run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
+
+  assets:
+    name: Assets (tsc, node --check, script tests, bun audit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.4
+      - run: bun install --frozen-lockfile
+      - run: bunx tsc --noEmit -p tsconfig.json
+      - run: node --check resources/public/static/app.js && node --check resources/public/static/theme.js
+      - run: bun run test:scripts
+      # Gated at critical for now: electron 44.5.1 (GHSA-jr5w-w6x2-84p9, fixed in
+      # 44.9.1) and a transitive undici still report "high" advisories. Raise it
+      # back to high once electron is bumped (needs the owner's approval).
+      - run: bun audit --audit-level=critical
+
+  e2e:
+    name: E2E (build, smoke, Playwright web)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.4
+      - run: bun install --frozen-lockfile
+      - run: bunx playwright install --with-deps chromium
+      - run: bun run smoke
+      - run: bun run e2e
+        env:
+          E2E_PORT: "18765"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
+  markdown:
+    name: Markdown (markdownlint-cli2)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.4
+      - run: bunx markdownlint-cli2@0.24.1 "**/*.md" "#node_modules" "#graphify-out" "#.claude"
